@@ -1,0 +1,15 @@
+{
+  "name": "kansai-social-downloader",
+  "version": "1.0.0",
+  "description": "日本關西旅遊互助社群 專用影音與圖文下載系統",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

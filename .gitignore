@@ -1,0 +1,6 @@
+node_modules/
+temp/
+*.log
+.DS_Store
+test_*.py
+test_*.js

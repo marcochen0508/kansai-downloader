@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日本關西旅遊互助群 專用影音圖文下載系統</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Banner / Header -->
+        <header class="main-header">
+            <div class="brand-badge">
+                <span class="badge-icon">🌸</span>
+                <span>關西旅遊愛心互助群 ‧ 專屬福利工具</span>
+            </div>
+            <h1 class="main-title">
+                日本關西旅遊互助群<br>
+                <span class="highlight-text">專用影音與圖文下載系統</span>
+            </h1>
+            <p class="main-subtitle">
+                只需貼上網址，自動辨識平台！輕鬆下載 1080p/4K 高畫質影片、提取 MP3 聲音檔、原圖照片，並支援一鍵複製 IG/Threads/小紅書社群貼文內文！
+            </p>
+
+            <!-- Platform Bar -->
+            <div class="platform-bar-section">
+                <div class="platform-title">
+                    <i class="fa-solid fa-layer-group"></i> 支援影音與社群平台：
+                </div>
+                <div class="platform-tags">
+                    <span class="p-tag youtube"><i class="fa-brands fa-youtube"></i> YouTube</span>
+                    <span class="p-tag instagram"><i class="fa-brands fa-instagram"></i> Instagram (影片/圖輯/內文)</span>
+                    <span class="p-tag facebook"><i class="fa-brands fa-facebook"></i> Facebook</span>
+                    <span class="p-tag tiktok"><i class="fa-brands fa-tiktok"></i> TikTok / 抖音</span>
+                    <span class="p-tag threads"><i class="fa-solid fa-threads"></i> Threads</span>
+                    <span class="p-tag twitter"><i class="fa-brands fa-x-twitter"></i> X (Twitter)</span>
+                    <span class="p-tag redbook"><i class="fa-solid fa-book-bookmark"></i> 小紅書 RED</span>
+                    <span class="p-tag bilibili"><i class="fa-solid fa-tv"></i> Bilibili</span>
+                    <span class="p-tag pinterest"><i class="fa-brands fa-pinterest"></i> Pinterest</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Input Card -->
+        <main class="content-wrapper">
+            <div class="input-card">
+                <div class="input-header">
+                    <label for="urlInput" class="input-label">
+                        <i class="fa-solid fa-link"></i> 請貼上社群影音或貼文網址：
+                    </label>
+                    <span class="detected-badge" id="detectedBadge" style="display: none;">
+                        <span id="detectedIcon">🌐</span> <span id="detectedName">自動判別平台中</span>
+                    </span>
+                </div>
+                <div class="input-group">
+                    <div class="input-field-wrapper">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="urlInput" placeholder="例如: https://www.instagram.com/reel/... 或 https://youtu.be/..." autocomplete="off">
+                        <button type="button" class="btn-paste" id="btnPaste" title="貼上剪貼簿連結">
+                            <i class="fa-solid fa-paste"></i> 貼上
+                        </button>
+                    </div>
+                    <button type="button" class="btn-parse" id="btnParse">
+                        <i class="fa-solid fa-bolt"></i> 開始解析
+                    </button>
+                </div>
+            </div>
+
+            <!-- Warm Tips Card -->
+            <div class="tips-card">
+                <div class="tips-header">
+                    <i class="fa-solid fa-lightbulb tips-icon"></i>
+                    <span class="tips-title">🌸 關西社友下載小貼士 (使用提醒)</span>
+                </div>
+                <ul class="tips-list">
+                    <li><strong>影片長度建議</strong>：建議下載 30 分鐘內的旅遊影片與短影音 (Reels / Shorts)，傳輸速度最快且體驗最佳！</li>
+                    <li><strong>超長影片技巧</strong>：若為 2 ~ 3 小時以上的長影片或廣播，建議選擇 <strong>「720p」</strong> 或 <strong>「提取 MP3 音檔」</strong>，檔案極小且幾秒即可下載完畢。</li>
+                    <li><strong>貼文文字複製</strong>：解析 IG / Threads / 小紅書等貼文後，點擊 <strong>「複製全文內容」</strong> 即可輕鬆將社群心得與景點介紹複製到剪貼簿。</li>
+                </ul>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div class="loading-state" id="loadingState" style="display: none;">
+                <div class="spinner"></div>
+                <p class="loading-text">正在自動解析平台與提取媒體資源，請稍候...</p>
+                <span class="loading-sub">解析中包含影片格式、聲音軌道與貼文內文</span>
+            </div>
+
+            <!-- Error Toast/Alert -->
+            <div class="error-alert" id="errorAlert" style="display: none;">
+                <i class="fa-solid fa-circle-exclamation alert-icon"></i>
+                <span id="errorMessage">解析失敗，請確認網址是否正確。</span>
+            </div>
+
+            <!-- Result Section -->
+            <div class="result-card" id="resultCard" style="display: none;">
+                <!-- Result Header -->
+                <div class="result-header">
+                    <div class="platform-info">
+                        <span class="res-platform-icon" id="resPlatformIcon">🔴</span>
+                        <div class="res-title-group">
+                            <span class="res-platform-name" id="resPlatformName">YouTube</span>
+                            <h2 class="res-title" id="resTitle">影片或貼文標題</h2>
+                            <div class="res-author" id="resAuthor">
+                                <i class="fa-solid fa-circle-user"></i> <span id="resAuthorName">創作者名稱</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a id="originalLink" href="#" target="_blank" rel="noopener" class="btn-original-link">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> 開啟原貼文
+                    </a>
+                </div>
+
+                <!-- Text Caption Section -->
+                <div class="caption-box" id="captionBox">
+                    <div class="caption-header">
+                        <div class="caption-title">
+                            <i class="fa-solid fa-quote-left"></i> 貼文與社群內文紀錄
+                            <span class="char-count" id="charCount">(0 字)</span>
+                        </div>
+                        <button class="btn-copy-text" id="btnCopyText">
+                            <i class="fa-regular fa-copy"></i> 複製全文內容
+                        </button>
+                    </div>
+                    <div class="caption-content" id="captionText">
+                        貼文內文將會顯示在這裡...
+                    </div>
+                </div>
+
+                <!-- Media Content Layout with Visual Item Previews -->
+                <div class="download-options-container">
+                    <!-- Video Quality Options -->
+                    <div class="option-group" id="videoOptionGroup">
+                        <div class="group-title">
+                            <i class="fa-solid fa-film"></i> 選擇影片下載 (包含預覽)
+                        </div>
+                        <div class="download-list" id="videoList">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Audio Options -->
+                    <div class="option-group" id="audioOptionGroup">
+                        <div class="group-title">
+                            <i class="fa-solid fa-music"></i> 提取聲音檔 (MP3 / 音軌)
+                        </div>
+                        <div class="download-list" id="audioList">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Image Options (with visual photo thumbnail next to download button) -->
+                    <div class="option-group" id="imageOptionGroup" style="display: none;">
+                        <div class="group-title">
+                            <i class="fa-solid fa-image"></i> 原圖照片下載 (相片對照預覽)
+                        </div>
+                        <div class="download-list" id="imageList">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast">已成功複製內文！</div>
+
+        <!-- Footer -->
+        <footer class="main-footer">
+            <p>🌸 日本關西旅遊互助社群 ‧ 交流分享專用下載工具</p>
+            <p class="footer-note">本工具僅供關西社友交流個人紀錄與旅遊資訊使用，請尊重創作者智慧財產權。</p>
+        </footer>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
