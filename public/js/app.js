@@ -85,8 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
             p = { icon: '📕', name: '小紅書 RED' };
         } else if (val.includes('bilibili.com') || val.includes('b23.tv')) {
             p = { icon: '📺', name: 'Bilibili' };
-        } else if (val.includes('pinterest.com') || val.includes('pin.it')) {
-            p = { icon: '📌', name: 'Pinterest' };
         }
 
         detectedIcon.textContent = p.icon;
