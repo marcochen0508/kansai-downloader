@@ -79,16 +79,15 @@ app.get('/api/download', async (req, res) => {
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
     const isYouTube = webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'));
     const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || url.includes('.m4s');
-    const isFacebook = webpageUrl && (webpageUrl.includes('facebook.com') || webpageUrl.includes('fb.watch') || webpageUrl.includes('fb.com'));
+    // Instagram uses yt-dlp for H.264 codec enforcement (IG CDN links expire quickly)
     const isInstagram = webpageUrl && (webpageUrl.includes('instagram.com') || webpageUrl.includes('instagr.am'));
     
-    // Route platforms requiring H.264/AAC codec selection and DASH container merging through yt-dlp for iOS playback compatibility
-    const requiresYtdlpMerge = isYouTube || isBilibili || isFacebook || isInstagram;
+    const requiresYtdlpMerge = isYouTube || isBilibili || isInstagram;
 
     const formatId = req.query.formatId || '';
     const isDirectStream = formatId === 'direct' || type === 'image' || type === 'audio';
     
-    // Stream directly: images, audios, or direct progressive MP4 streams that don't need codec/container processing
+    // Stream directly with redirect + yt-dlp fallback for all non-DASH video platforms (including Facebook)
     if (isDirectStream || (type === 'video' && !requiresYtdlpMerge && url.startsWith('http'))) {
         const contentType = type === 'image' ? 'image/jpeg' : (type === 'audio' ? 'audio/mpeg' : 'video/mp4');
         setContentDisposition(res, safeFilename);
@@ -97,7 +96,7 @@ app.get('/api/download', async (req, res) => {
         return fetchAndStream(url, res, webpageUrl, safeFilename);
     }
 
-    // For YouTube, Bilibili, Facebook, or Instagram videos requiring format merging and iOS H.264 codec selection
+    // For YouTube, Bilibili (DASH), or Instagram — force yt-dlp with H.264/AAC codec selection
     downloadViaYtdlp(url, webpageUrl, safeFilename, res);
 });
 
