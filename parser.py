@@ -489,16 +489,15 @@ def scrape_threads_fallback(url):
                 continue
             
             # Filter out video cover frame thumbnails (both plain and URL encoded)
-            if 'cover_frame' in ci.lower() or 'video_default' in ci.lower() or 'video_cover' in ci.lower():
+            if 'video' in ci.lower() or 'cover_frame' in ci.lower():
                 continue
             
-            id_m = re.search(r'/(\d+_\d+_\d+_[a-z0-9_]+\.jpg)', ci) or re.search(r'/(\d+_\d+_\d+_n\.jpg)', ci)
+            id_m = re.search(r'/(\d+_\d+_\d+)', ci)
             img_key = id_m.group(1) if id_m else ci.split('?')[0]
             
             if img_key not in seen_image_keys:
                 seen_image_keys.add(img_key)
-                if ci not in clean_images:
-                    clean_images.append(ci)
+                clean_images.append(ci)
 
         platform = {"id": "threads", "name": "Threads", "icon": "🧵", "color": "#000000"}
 
