@@ -6,6 +6,13 @@ import urllib.request
 import urllib.parse
 import ssl
 
+import os
+import glob
+site_dirs = glob.glob('/opt/render/.local/lib/python*/site-packages') + glob.glob(os.path.expanduser('~/.local/lib/python*/site-packages'))
+for d in site_dirs:
+    if d not in sys.path:
+        sys.path.insert(0, d)
+
 # Force stdout to UTF-8 for Windows compatibility
 sys.stdout.reconfigure(encoding='utf-8')
 
