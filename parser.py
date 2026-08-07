@@ -573,7 +573,7 @@ def parse_url(target_url):
                 "uploader": uploader or "社群創作者",
                 "thumbnail": thumbnail,
                 "videos": video_options[:6],
-                "audios": audios[:3],
+                "audios": audio_options[:3],
                 "images": images,
                 "webpage_url": webpage_url
             }
