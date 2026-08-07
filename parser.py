@@ -488,8 +488,8 @@ def scrape_threads_fallback(url):
             if 'cdninstagram.com' not in ci or '.mp4' in ci or 's150x150' in ci or 'rsrc.php' in ci or 'profile' in ci:
                 continue
             
-            # Filter out video cover frame thumbnails
-            if 'video_default_cover_frame' in ci or 'cover_frame' in ci:
+            # Filter out video cover frame thumbnails (both plain and URL encoded)
+            if 'cover_frame' in ci.lower() or 'video_default' in ci.lower() or 'video_cover' in ci.lower():
                 continue
             
             id_m = re.search(r'/(\d+_\d+_\d+_[a-z0-9_]+\.jpg)', ci) or re.search(r'/(\d+_\d+_\d+_n\.jpg)', ci)
