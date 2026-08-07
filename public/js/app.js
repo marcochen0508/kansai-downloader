@@ -199,9 +199,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const targetFilename = makeCleanFilename(data.title, vid.quality, vid.ext);
                 const dlProxyUrl = `/api/download?url=${encodeURIComponent(vid.url)}&filename=${encodeURIComponent(targetFilename)}&type=video&webpageUrl=${encodeURIComponent(vid.webpage_url || '')}&formatId=${encodeURIComponent(vid.format_id || '')}`;
 
+                const itemVidThumb = vid.thumbnail || data.thumbnail || '';
+                const proxiedVidThumb = getProxyImageUrl(itemVidThumb);
+
                 item.innerHTML = `
                     <div class="item-media-left">
-                        ${proxiedPosterUrl ? `<img src="${proxiedPosterUrl}" class="item-thumb" alt="影片預覽">` : `<div class="item-thumb-placeholder"><i class="fa-solid fa-film"></i></div>`}
+                        ${proxiedVidThumb ? `<img src="${proxiedVidThumb}" class="item-thumb" alt="影片預覽">` : `<div class="item-thumb-placeholder"><i class="fa-solid fa-film"></i></div>`}
                         <div class="item-info">
                             <span class="badge-quality">🎬 ${vid.quality}</span>
                             <span class="item-name">${vid.ext.toUpperCase()} 影片 ${vid.size ? '(' + vid.size + ')' : ''}</span>
