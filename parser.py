@@ -400,6 +400,88 @@ def scrape_red_fallback(url):
     except Exception as e:
         return {"success": False, "error": f"小紅書解析失敗: {str(e)}"}
 
+def scrape_threads_fallback(url):
+    clean_url = url.split('?')[0].rstrip('/')
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    }
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+
+    req = urllib.request.Request(clean_url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, context=ctx, timeout=12) as resp:
+            html_text = resp.read().decode('utf-8')
+            
+            title_m = re.search(r'<meta\s+property="og:title"\s+content="([^"]*)"', html_text) or re.search(r'<title>([^<]*)</title>', html_text)
+            title = html_lib.unescape(title_m.group(1)) if title_m else "Threads 貼文"
+            
+            desc_m = re.search(r'<meta\s+property="og:description"\s+content="([^"]*)"', html_text) or re.search(r'<meta\s+name="description"\s+content="([^"]*)"', html_text)
+            description = html_lib.unescape(desc_m.group(1)) if desc_m else ""
+
+            thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', html_text)
+            thumbnail = html_lib.unescape(thumb_m.group(1)) if thumb_m else ""
+
+            raw_videos = re.findall(r'https:\\/\\/[^\s"&]*?\.mp4[^\s"&]*', html_text) + re.findall(r'https://[^\s"&]*?\.mp4[^\s"&]*', html_text)
+            clean_videos = []
+            for v in raw_videos:
+                cv = html_lib.unescape(v.replace('\\/', '/').replace('\\u0026', '&'))
+                if cv not in clean_videos:
+                    clean_videos.append(cv)
+
+            video_options = []
+            audio_options = []
+            for idx, vurl in enumerate(clean_videos):
+                v_label = f"影片 {idx+1} (高畫質 MP4)" if len(clean_videos) > 1 else "高畫質影片 (MP4)"
+                a_label = f"提取影片 {idx+1} 原聲 (MP3)" if len(clean_videos) > 1 else "提取原聲 (MP3)"
+                video_options.append({
+                    "quality": v_label,
+                    "height": 720,
+                    "ext": "mp4",
+                    "has_audio": True,
+                    "size": "",
+                    "url": vurl,
+                    "thumbnail": thumbnail,
+                    "format_id": "direct",
+                    "webpage_url": clean_url
+                })
+                audio_options.append({
+                    "quality": a_label,
+                    "ext": "mp3",
+                    "size": "",
+                    "url": vurl,
+                    "thumbnail": thumbnail,
+                    "format_id": "bestaudio",
+                    "webpage_url": clean_url
+                })
+
+            raw_images = re.findall(r'https:\\/\\/[^\s"&]*?cdninstagram\.com[^\s"&]*', html_text) + re.findall(r'https://[^\s"&]*?cdninstagram\.com[^\s"&]*', html_text)
+            clean_images = []
+            for img in raw_images:
+                ci = html_lib.unescape(img.replace('\\/', '/').replace('\\u0026', '&'))
+                if '.mp4' not in ci and 's150x150' not in ci and 'rsrc.php' not in ci and ci not in clean_images:
+                    clean_images.append(ci)
+
+            platform = {"id": "threads", "name": "Threads", "icon": "🧵", "color": "#000000"}
+
+            return {
+                "success": True,
+                "platform": platform,
+                "title": title,
+                "description": description or title,
+                "uploader": "Threads 創作者",
+                "thumbnail": thumbnail,
+                "videos": video_options,
+                "audios": audio_options,
+                "images": clean_images[:10],
+                "webpage_url": clean_url
+            }
+    except Exception as e:
+        return {"success": False, "error": f"Threads 解析失敗: {str(e)}"}
+
 def parse_url(target_url):
     clean_target_url = normalize_url(target_url)
 
@@ -407,6 +489,11 @@ def parse_url(target_url):
         x_res = scrape_twitter_fallback(clean_target_url)
         if x_res.get('success'):
             return x_res
+
+    if 'threads.net' in clean_target_url or 'threads.com' in clean_target_url:
+        threads_res = scrape_threads_fallback(clean_target_url)
+        if threads_res.get('success'):
+            return threads_res
 
     if 'threads.net' in clean_target_url or 'threads.com' in clean_target_url:
         threads_res = scrape_threads_fallback(clean_target_url)
@@ -585,6 +672,10 @@ def parse_url(target_url):
             tt_res = scrape_tiktok_fallback(clean_target_url)
             if tt_res.get('success'):
                 return tt_res
+        if 'threads.com' in clean_target_url or 'threads.net' in clean_target_url:
+            th_res = scrape_threads_fallback(clean_target_url)
+            if th_res.get('success'):
+                return th_res
         return {"success": False, "error": f"解析失敗: {err_msg}"}
 
 if __name__ == '__main__':
