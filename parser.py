@@ -37,6 +37,8 @@ def detect_platform(url, extractor_key=None):
         return {'id': 'xiaohongshu', 'name': '小紅書 RED', 'icon': '📕', 'color': '#ff2442'}
     elif 'bilibili.com' in url_lower or 'b23.tv' in url_lower:
         return {'id': 'bilibili', 'name': 'Bilibili 嗶哩嗶哩', 'icon': '📺', 'color': '#00a1d6'}
+    elif 't.me/' in url_lower or 'telegram.me' in url_lower:
+        return {'id': 'telegram', 'name': 'Telegram', 'icon': '✈️', 'color': '#0088cc'}
     else:
         return {'id': 'general', 'name': extractor_key or '社群影音平台', 'icon': '🌐', 'color': '#3b82f6'}
 
