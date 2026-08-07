@@ -206,6 +206,13 @@ function fetchAndStream(mediaUrl, res, webpageUrl, safeFilename, redirectCount =
     }
 }
 
+let ffmpegPath = null;
+try {
+    ffmpegPath = require('ffmpeg-static');
+} catch (e) {
+    console.log('ffmpeg-static not found, using default system ffmpeg');
+}
+
 function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
     const targetUrl = webpageUrl || url;
     const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.mp4`);
@@ -216,6 +223,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
         '--merge-output-format', 'mp4',
         '-o', tempFilePath
     ];
+
+    if (ffmpegPath) {
+        args.push('--ffmpeg-location', ffmpegPath);
+    }
 
     if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
