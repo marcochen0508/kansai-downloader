@@ -5,6 +5,7 @@ import html as html_lib
 import urllib.request
 import urllib.parse
 import ssl
+import base64
 
 import os
 import glob
@@ -442,12 +443,32 @@ def scrape_threads_fallback(url):
         thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', html_text)
         thumbnail = html_lib.unescape(thumb_m.group(1)) if thumb_m else ""
 
+        # Extract videos and deduplicate by asset_id / base_path
         raw_videos = re.findall(r'https:[^"\']+\.mp4[^"\']*', html_text)
-        clean_videos = []
+        asset_groups = {}
+
         for v in raw_videos:
             cv = html_lib.unescape(v.replace('\\/', '/').replace('\\u0026', '&'))
-            if cv not in clean_videos:
-                clean_videos.append(cv)
+            asset_id = None
+            efg_m = re.search(r'efg=([A-Za-z0-9%_\-]+)', cv)
+            if efg_m:
+                try:
+                    efg_raw = urllib.parse.unquote(efg_m.group(1))
+                    efg_raw += '=' * (-len(efg_raw) % 4)
+                    decoded = base64.b64decode(efg_raw).decode('utf-8', errors='ignore')
+                    asset_m = re.search(r'"xpv_asset_id":\s*(\d+)', decoded)
+                    if asset_m:
+                        asset_id = asset_m.group(1)
+                except Exception:
+                    pass
+            
+            if not asset_id:
+                asset_id = cv.split('?')[0]
+
+            if asset_id not in asset_groups:
+                asset_groups[asset_id] = cv
+
+        clean_videos = list(asset_groups.values())
 
         video_options = []
         audio_options = []
@@ -475,11 +496,20 @@ def scrape_threads_fallback(url):
                 "webpage_url": clean_url
             })
 
+        # Deduplicate images by photo ID
         raw_images = re.findall(r'https:[^"\']+\.jpg[^"\']*', html_text)
         clean_images = []
+        seen_image_keys = set()
         for img in raw_images:
             ci = html_lib.unescape(img.replace('\\/', '/').replace('\\u0026', '&'))
-            if 'cdninstagram.com' in ci and '.mp4' not in ci and 's150x150' not in ci and 'rsrc.php' not in ci and ci not in clean_images:
+            if 'cdninstagram.com' not in ci or '.mp4' in ci or 's150x150' in ci or 'rsrc.php' in ci or 'profile' in ci:
+                continue
+            
+            id_m = re.search(r'/(\d+_\d+_\d+_[a-z0-9_]+\.jpg)', ci) or re.search(r'/(\d+_\d+_\d+_n\.jpg)', ci)
+            img_key = id_m.group(1) if id_m else ci.split('?')[0]
+            
+            if img_key not in seen_image_keys:
+                seen_image_keys.add(img_key)
                 clean_images.append(ci)
 
         if not video_options and not clean_images and thumbnail:
