@@ -503,11 +503,16 @@ def scrape_threads_fallback(url):
             if 'video' in ci.lower() or 'cover_frame' in ci.lower():
                 continue
             
-            id_m = re.search(r'/(\d+_\d+_\d+)', ci)
-            img_key = id_m.group(1) if id_m else ci.split('?')[0]
+            # Extract photo asset id for dedup (prefer xpv_asset_id from efg, fall back to ig_cache_key)
+            photo_asset_id = None
+            cache_key_m = re.search(r'ig_cache_key=([A-Za-z0-9_\-]+)', ci)
+            if cache_key_m:
+                photo_asset_id = cache_key_m.group(1)
+            else:
+                photo_asset_id = ci.split('?')[0]
             
-            if img_key not in seen_image_keys:
-                seen_image_keys.add(img_key)
+            if photo_asset_id not in seen_image_keys:
+                seen_image_keys.add(photo_asset_id)
                 clean_images.append(ci)
 
         platform = {"id": "threads", "name": "Threads", "icon": "🧵", "color": "#000000"}
