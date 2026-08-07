@@ -443,62 +443,47 @@ def scrape_threads_fallback(url):
         thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', html_text)
         thumbnail = html_lib.unescape(thumb_m.group(1)) if thumb_m else ""
 
-        # Extract videos and deduplicate by asset_id / base_path
+        # Extract primary video URL (filter out duplicate segment streams)
         raw_videos = re.findall(r'https:[^"\']+\.mp4[^"\']*', html_text)
-        asset_groups = {}
-
+        best_video_url = None
         for v in raw_videos:
             cv = html_lib.unescape(v.replace('\\/', '/').replace('\\u0026', '&'))
-            asset_id = None
-            efg_m = re.search(r'efg=([A-Za-z0-9%_\-]+)', cv)
-            if efg_m:
-                try:
-                    efg_raw = urllib.parse.unquote(efg_m.group(1))
-                    efg_raw += '=' * (-len(efg_raw) % 4)
-                    decoded = base64.b64decode(efg_raw).decode('utf-8', errors='ignore')
-                    asset_m = re.search(r'"xpv_asset_id":\s*(\d+)', decoded)
-                    if asset_m:
-                        asset_id = asset_m.group(1)
-                except Exception:
-                    pass
-            
-            if not asset_id:
-                asset_id = cv.split('?')[0]
-
-            if asset_id not in asset_groups:
-                asset_groups[asset_id] = cv
-
-        clean_videos = list(asset_groups.values())
+            if 'progressive' in cv or '720' in cv:
+                best_video_url = cv
+                break
+        if not best_video_url and raw_videos:
+            best_video_url = html_lib.unescape(raw_videos[0].replace('\\/', '/').replace('\\u0026', '&'))
 
         video_options = []
         audio_options = []
-        for idx, vurl in enumerate(clean_videos):
-            v_label = f"影片 {idx+1} (高畫質 MP4)" if len(clean_videos) > 1 else "高畫質影片 (MP4)"
-            a_label = f"提取影片 {idx+1} 原聲 (MP3)" if len(clean_videos) > 1 else "提取原聲 (MP3)"
+        if best_video_url:
             video_options.append({
-                "quality": v_label,
+                "quality": "高畫質影片 (MP4)",
                 "height": 720,
                 "ext": "mp4",
                 "has_audio": True,
                 "size": "",
-                "url": vurl,
+                "url": best_video_url,
                 "thumbnail": thumbnail,
                 "format_id": "direct",
                 "webpage_url": clean_url
             })
             audio_options.append({
-                "quality": a_label,
+                "quality": "提取原聲 (MP3)",
                 "ext": "mp3",
                 "size": "",
-                "url": vurl,
+                "url": best_video_url,
                 "thumbnail": thumbnail,
                 "format_id": "bestaudio",
                 "webpage_url": clean_url
             })
 
-        # Deduplicate images by photo ID
-        raw_images = re.findall(r'https:[^"\']+\.jpg[^"\']*', html_text)
+        # Deduplicate images cleanly
         clean_images = []
+        if thumbnail:
+            clean_images.append(thumbnail)
+
+        raw_images = re.findall(r'https:[^"\']+\.jpg[^"\']*', html_text)
         seen_image_keys = set()
         for img in raw_images:
             ci = html_lib.unescape(img.replace('\\/', '/').replace('\\u0026', '&'))
@@ -510,10 +495,8 @@ def scrape_threads_fallback(url):
             
             if img_key not in seen_image_keys:
                 seen_image_keys.add(img_key)
-                clean_images.append(ci)
-
-        if not video_options and not clean_images and thumbnail:
-            clean_images.append(thumbnail)
+                if ci not in clean_images:
+                    clean_images.append(ci)
 
         platform = {"id": "threads", "name": "Threads", "icon": "🧵", "color": "#000000"}
 
@@ -526,7 +509,7 @@ def scrape_threads_fallback(url):
             "thumbnail": thumbnail,
             "videos": video_options,
             "audios": audio_options,
-            "images": clean_images[:10],
+            "images": clean_images[:5],
             "webpage_url": clean_url
         }
     except Exception as e:
