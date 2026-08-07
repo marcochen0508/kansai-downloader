@@ -488,7 +488,18 @@ def scrape_threads_fallback(url):
             if 'cdninstagram.com' not in ci or '.mp4' in ci or 's150x150' in ci or 'rsrc.php' in ci or 'profile' in ci:
                 continue
             
-            # Filter out video cover frame thumbnails (both plain and URL encoded)
+            # Decode efg query param if present to detect video cover frames
+            efg_m = re.search(r'efg=([A-Za-z0-9%_\-]+)', ci)
+            if efg_m:
+                try:
+                    efg_raw = urllib.parse.unquote(efg_m.group(1))
+                    efg_raw += '=' * (-len(efg_raw) % 4)
+                    decoded_efg = base64.b64decode(efg_raw).decode('utf-8', errors='ignore').lower()
+                    if 'video' in decoded_efg or 'cover_frame' in decoded_efg:
+                        continue
+                except Exception:
+                    pass
+
             if 'video' in ci.lower() or 'cover_frame' in ci.lower():
                 continue
             
