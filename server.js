@@ -26,7 +26,8 @@ app.post('/api/parse', (req, res) => {
         return res.status(400).json({ success: false, error: '請提供有效的網址' });
     }
 
-    const pythonProcess = spawn('python', ['parser.py', url]);
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const pythonProcess = spawn(pythonCmd, ['parser.py', url]);
     let outputData = '';
     let errorData = '';
 
