@@ -79,12 +79,16 @@ app.get('/api/download', async (req, res) => {
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
     const isYouTube = webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'));
     const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || url.includes('.m4s');
-    const requiresYtdlpMerge = isYouTube || isBilibili;
+    const isFacebook = webpageUrl && (webpageUrl.includes('facebook.com') || webpageUrl.includes('fb.watch') || webpageUrl.includes('fb.com'));
+    const isInstagram = webpageUrl && (webpageUrl.includes('instagram.com') || webpageUrl.includes('instagr.am'));
+    
+    // Route platforms requiring H.264/AAC codec selection and DASH container merging through yt-dlp for iOS playback compatibility
+    const requiresYtdlpMerge = isYouTube || isBilibili || isFacebook || isInstagram;
 
     const formatId = req.query.formatId || '';
     const isDirectStream = formatId === 'direct' || type === 'image' || type === 'audio';
     
-    // Stream directly: images, audios, or direct progressive MP4 formats (non-YouTube / non-Bilibili DASH streams)
+    // Stream directly: images, audios, or direct progressive MP4 streams that don't need codec/container processing
     if (isDirectStream || (type === 'video' && !requiresYtdlpMerge && url.startsWith('http'))) {
         const contentType = type === 'image' ? 'image/jpeg' : (type === 'audio' ? 'audio/mpeg' : 'video/mp4');
         setContentDisposition(res, safeFilename);
@@ -93,7 +97,7 @@ app.get('/api/download', async (req, res) => {
         return fetchAndStream(url, res, webpageUrl, safeFilename);
     }
 
-    // For YouTube, Bilibili, or DASH streams requiring format merging via yt-dlp
+    // For YouTube, Bilibili, Facebook, or Instagram videos requiring format merging and iOS H.264 codec selection
     downloadViaYtdlp(url, webpageUrl, safeFilename, res);
 });
 
@@ -219,7 +223,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
 
     const args = [
         targetUrl,
-        '-f', 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo+bestaudio/best',
+        '-f', 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
         '--merge-output-format', 'mp4',
         '-o', tempFilePath
     ];
@@ -230,6 +234,8 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
 
     if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
+    } else if (targetUrl.includes('instagram')) {
+        args.push('--add-header', 'Referer:https://www.instagram.com/');
     }
 
     const ytdlp = spawn('python', ['-m', 'yt_dlp', ...args]);
