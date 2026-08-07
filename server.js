@@ -61,6 +61,14 @@ app.post('/api/parse', (req, res) => {
     });
 });
 
+// Helper: Set RFC 5987 compliant Content-Disposition header for cross-browser Chinese filename support
+function setContentDisposition(res, filename) {
+    const safeName = filename || 'download.mp4';
+    const asciiName = safeName.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+    const utf8Name = encodeURIComponent(safeName);
+    res.setHeader('Content-Disposition', `attachment; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`);
+}
+
 // API: Download Handler with yt-dlp Video+Audio Merge & Headers Proxy
 app.get('/api/download', async (req, res) => {
     const { url, filename, type, webpageUrl } = req.query;
@@ -76,10 +84,10 @@ app.get('/api/download', async (req, res) => {
     // Stream directly: images, audios, non-YouTube videos, or YouTube progressive (direct) formats
     if (isDirectStream || (type === 'video' && !isYouTube && url.startsWith('http'))) {
         const contentType = type === 'image' ? 'image/jpeg' : (type === 'audio' ? 'audio/mpeg' : 'video/mp4');
-        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(safeFilename)}"`);
+        setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', contentType);
 
-        return fetchAndStream(url, res, webpageUrl);
+        return fetchAndStream(url, res, webpageUrl, safeFilename);
     }
 
     // For YouTube videos requiring format merging via yt-dlp
@@ -131,7 +139,11 @@ app.get('/api/proxy-image', (req, res) => {
     }
 });
 
-function fetchAndStream(mediaUrl, res, webpageUrl) {
+function fetchAndStream(mediaUrl, res, webpageUrl, safeFilename, redirectCount = 0) {
+    if (redirectCount > 5) {
+        return downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
+    }
+
     try {
         const parsed = new URL(mediaUrl);
         let referer = webpageUrl || 'https://www.google.com';
@@ -150,23 +162,33 @@ function fetchAndStream(mediaUrl, res, webpageUrl) {
 
         const protocol = mediaUrl.startsWith('https') ? https : http;
         protocol.get(mediaUrl, options, (streamRes) => {
+            // Handle HTTP Redirects (301, 302, 303, 307, 308)
+            if (streamRes.statusCode >= 300 && streamRes.statusCode < 400 && streamRes.headers.location) {
+                const nextUrl = new URL(streamRes.headers.location, mediaUrl).toString();
+                return fetchAndStream(nextUrl, res, webpageUrl, safeFilename, redirectCount + 1);
+            }
+
             if (streamRes.statusCode >= 400) {
                 // Fallback attempt without Referer
                 protocol.get(mediaUrl, { headers: { 'User-Agent': options.headers['User-Agent'] } }, (fbRes) => {
-                    if (fbRes.statusCode >= 400) {
-                        return downloadViaYtdlp(mediaUrl, webpageUrl, 'download.mp4', res);
+                    if (fbRes.statusCode >= 300 && fbRes.statusCode < 400 && fbRes.headers.location) {
+                        const nextUrl = new URL(fbRes.headers.location, mediaUrl).toString();
+                        return fetchAndStream(nextUrl, res, webpageUrl, safeFilename, redirectCount + 1);
                     }
-                    // Forward Content-Length so mobile browsers force download
+                    if (fbRes.statusCode >= 400) {
+                        return downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
+                    }
                     if (fbRes.headers['content-length']) {
                         res.setHeader('Content-Length', fbRes.headers['content-length']);
                     }
                     res.setHeader('X-Content-Type-Options', 'nosniff');
                     fbRes.pipe(res);
                 }).on('error', () => {
-                    downloadViaYtdlp(mediaUrl, webpageUrl, 'download.mp4', res);
+                    downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
                 });
                 return;
             }
+
             // Forward Content-Length from CDN so iOS Safari triggers save-to-files
             if (streamRes.headers['content-length']) {
                 res.setHeader('Content-Length', streamRes.headers['content-length']);
@@ -174,10 +196,10 @@ function fetchAndStream(mediaUrl, res, webpageUrl) {
             res.setHeader('X-Content-Type-Options', 'nosniff');
             streamRes.pipe(res);
         }).on('error', () => {
-            downloadViaYtdlp(mediaUrl, webpageUrl, 'download.mp4', res);
+            downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
         });
     } catch (e) {
-        downloadViaYtdlp(mediaUrl, webpageUrl, 'download.mp4', res);
+        downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
     }
 }
 
@@ -200,7 +222,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
 
     ytdlp.on('close', (code) => {
         if (code === 0 && fs.existsSync(tempFilePath)) {
-            res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(safeFilename)}"`);
+            setContentDisposition(res, safeFilename);
             res.setHeader('Content-Type', 'video/mp4');
 
             const fileStream = fs.createReadStream(tempFilePath);

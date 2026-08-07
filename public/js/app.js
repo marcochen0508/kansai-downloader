@@ -1,4 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Detect In-App Browsers (LINE / FB / IG) on iOS
+    function checkInAppBrowser() {
+        const ua = navigator.userAgent || navigator.vendor || window.opera;
+        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isInApp = /Line|FB_IAB|FBAN|FBAV|Instagram|MicroMessenger|Twitter/i.test(ua);
+
+        if (isIOS && isInApp) {
+            const banner = document.getElementById('iabWarningBanner');
+            if (banner) {
+                banner.style.display = 'flex';
+            }
+        }
+    }
+    checkInAppBrowser();
+
     const urlInput = document.getElementById('urlInput');
     const btnPaste = document.getElementById('btnPaste');
     const btnParse = document.getElementById('btnParse');

@@ -47,6 +47,39 @@ body {
     gap: 20px;
 }
 
+/* In-App Browser (LINE/FB/IG) Warning Banner */
+.iab-warning-banner {
+    background: #fff7ed;
+    border: 1.5px solid #f97316;
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.15);
+    animation: fadeIn 0.4s ease;
+}
+
+.iab-warning-banner .iab-icon {
+    font-size: 1.6rem;
+    color: #ea580c;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.iab-warning-banner .iab-content {
+    font-size: 0.92rem;
+    color: #9a3412;
+    line-height: 1.5;
+}
+
+.iab-warning-banner .iab-content strong {
+    display: block;
+    font-size: 0.98rem;
+    color: #c2410c;
+    margin-bottom: 4px;
+}
+
 /* Header Section */
 .main-header {
     text-align: center;
