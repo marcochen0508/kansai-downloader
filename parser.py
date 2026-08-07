@@ -144,6 +144,88 @@ def scrape_twitter_fallback(url):
     except Exception as e:
         return {"success": False, "error": f"X (Twitter) 解析失敗: {str(e)}"}
 
+def scrape_telegram_fallback(url):
+    m = re.search(r't\.me/([^/]+)/(\d+)', url)
+    if not m:
+        return {"success": False, "error": "無效的 Telegram 貼文連結。"}
+    channel, msg_id = m.group(1), m.group(2)
+    embed_url = f"https://t.me/{channel}/{msg_id}?embed=1"
+    
+    req = urllib.request.Request(embed_url, headers={
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    })
+    
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
+            html_text = resp.read().decode('utf-8')
+            
+        videos_raw = re.findall(r'<video[^>]+src=["\']([^"\']+)["\']', html_text)
+        images_raw = re.findall(r'background-image:url\([\'"]?([^\'"]+)[\'"]?\)', html_text)
+        title_m = re.search(r'<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', html_text, re.DOTALL)
+        
+        description = ""
+        if title_m:
+            description = re.sub(r'<[^>]+>', '', title_m.group(1)).strip()
+        description = html_lib.unescape(description)
+        
+        title = description[:40].replace('\n', ' ') if description else f"Telegram 頻道貼文 ({channel})"
+        uploader = f"@{channel}"
+        
+        videos = []
+        audios = []
+        images = []
+        
+        for idx, v_url in enumerate(videos_raw, 1):
+            clean_v_url = html_lib.unescape(v_url)
+            v_label = f"影片 {idx} (MP4)" if len(videos_raw) > 1 else "高畫質影片 (MP4)"
+            videos.append({
+                'quality': v_label,
+                'height': 720,
+                'ext': 'mp4',
+                'has_audio': True,
+                'size': '',
+                'url': clean_v_url,
+                'format_id': 'direct',
+                'webpage_url': url
+            })
+            a_label = f"提取影片 {idx} 原聲 (MP3)" if len(videos_raw) > 1 else "提取原聲 (MP3)"
+            audios.append({
+                'quality': a_label,
+                'ext': 'mp3',
+                'size': '',
+                'url': clean_v_url,
+                'format_id': 'bestaudio',
+                'webpage_url': url
+            })
+            
+        for img in images_raw:
+            clean_img = html_lib.unescape(img)
+            if 'telegram.org' not in clean_img and clean_img not in images:
+                images.append(clean_img)
+                
+        thumbnail = images[0] if images else (videos[0]['url'] if videos else "")
+        
+        if not videos and not images:
+            return {"success": False, "error": "該 Telegram 貼文無可下載的影音或圖片。"}
+            
+        return {
+            "success": True,
+            "platform": {"id": "telegram", "name": "Telegram", "icon": "✈️", "color": "#0088cc"},
+            "title": f"{uploader} - {title}",
+            "description": description,
+            "uploader": uploader,
+            "thumbnail": thumbnail,
+            "videos": videos,
+            "audios": audios,
+            "images": images,
+            "webpage_url": url
+        }
+    except Exception as e:
+        return {"success": False, "error": f"Telegram 解析失敗: {str(e)}"}
+
 def scrape_threads_fallback(url):
     clean_url = normalize_url(url)
     
@@ -541,6 +623,11 @@ def parse_url(target_url):
         if x_res.get('success'):
             return x_res
 
+    if 't.me/' in clean_target_url or 'telegram.me' in clean_target_url:
+        tg_res = scrape_telegram_fallback(clean_target_url)
+        if tg_res.get('success'):
+            return tg_res
+
     if 'threads.net' in clean_target_url or 'threads.com' in clean_target_url:
         threads_res = scrape_threads_fallback(clean_target_url)
         if threads_res.get('success'):
@@ -729,6 +816,10 @@ def parse_url(target_url):
             th_res = scrape_threads_fallback(clean_target_url)
             if th_res.get('success'):
                 return th_res
+        if 't.me/' in clean_target_url or 'telegram.me' in clean_target_url:
+            tg_res = scrape_telegram_fallback(clean_target_url)
+            if tg_res.get('success'):
+                return tg_res
         return {"success": False, "error": f"解析失敗: {err_msg}"}
 
 if __name__ == '__main__':
