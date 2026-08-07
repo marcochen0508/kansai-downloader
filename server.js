@@ -70,9 +70,11 @@ app.get('/api/download', async (req, res) => {
 
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
     const isYouTube = webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'));
+    const formatId = req.query.formatId || '';
+    const isDirectStream = formatId === 'direct' || type === 'image' || type === 'audio';
     
-    // For direct image/audio or direct social media video streams (TikTok, Threads, X, Instagram)
-    if (type === 'image' || type === 'audio' || (type === 'video' && !isYouTube && url.startsWith('http'))) {
+    // Stream directly: images, audios, non-YouTube videos, or YouTube progressive (direct) formats
+    if (isDirectStream || (type === 'video' && !isYouTube && url.startsWith('http'))) {
         const contentType = type === 'image' ? 'image/jpeg' : (type === 'audio' ? 'audio/mpeg' : 'video/mp4');
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(safeFilename)}"`);
         res.setHeader('Content-Type', contentType);
@@ -154,12 +156,22 @@ function fetchAndStream(mediaUrl, res, webpageUrl) {
                     if (fbRes.statusCode >= 400) {
                         return downloadViaYtdlp(mediaUrl, webpageUrl, 'download.mp4', res);
                     }
+                    // Forward Content-Length so mobile browsers force download
+                    if (fbRes.headers['content-length']) {
+                        res.setHeader('Content-Length', fbRes.headers['content-length']);
+                    }
+                    res.setHeader('X-Content-Type-Options', 'nosniff');
                     fbRes.pipe(res);
                 }).on('error', () => {
                     downloadViaYtdlp(mediaUrl, webpageUrl, 'download.mp4', res);
                 });
                 return;
             }
+            // Forward Content-Length from CDN so iOS Safari triggers save-to-files
+            if (streamRes.headers['content-length']) {
+                res.setHeader('Content-Length', streamRes.headers['content-length']);
+            }
+            res.setHeader('X-Content-Type-Options', 'nosniff');
             streamRes.pipe(res);
         }).on('error', () => {
             downloadViaYtdlp(mediaUrl, webpageUrl, 'download.mp4', res);

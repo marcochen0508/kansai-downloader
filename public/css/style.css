@@ -601,6 +601,8 @@ body {
     display: inline-flex;
     align-items: center;
     width: fit-content;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .badge-audio {
@@ -613,6 +615,8 @@ body {
     display: inline-flex;
     align-items: center;
     width: fit-content;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .item-name {
@@ -760,16 +764,43 @@ body {
 
     .media-preview-item {
         padding: 10px 12px;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .item-media-left {
         gap: 10px;
+        flex: 1;
+        min-width: 0;
     }
 
     .item-thumb, .item-thumb-placeholder {
-        width: 58px;
-        height: 58px;
+        width: 52px;
+        height: 52px;
+    }
+
+    .item-info {
+        gap: 3px;
+        overflow: hidden;
+    }
+
+    .badge-quality, .badge-audio {
+        font-size: 0.72rem;
+        padding: 2px 8px;
+        white-space: nowrap;
+        max-width: 160px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .item-name {
+        font-size: 0.8rem;
     }
 
     .btn-dl {
-        padding: 7px 14px;
+        padding: 8px 14px;
         font-size: 0.85rem;
+        align-self: center;
+        flex-shrink: 0;
     }
 }
