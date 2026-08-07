@@ -78,11 +78,14 @@ app.get('/api/download', async (req, res) => {
 
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
     const isYouTube = webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'));
+    const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || url.includes('.m4s');
+    const requiresYtdlpMerge = isYouTube || isBilibili;
+
     const formatId = req.query.formatId || '';
     const isDirectStream = formatId === 'direct' || type === 'image' || type === 'audio';
     
-    // Stream directly: images, audios, non-YouTube videos, or YouTube progressive (direct) formats
-    if (isDirectStream || (type === 'video' && !isYouTube && url.startsWith('http'))) {
+    // Stream directly: images, audios, or direct progressive MP4 formats (non-YouTube / non-Bilibili DASH streams)
+    if (isDirectStream || (type === 'video' && !requiresYtdlpMerge && url.startsWith('http'))) {
         const contentType = type === 'image' ? 'image/jpeg' : (type === 'audio' ? 'audio/mpeg' : 'video/mp4');
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', contentType);
@@ -90,7 +93,7 @@ app.get('/api/download', async (req, res) => {
         return fetchAndStream(url, res, webpageUrl, safeFilename);
     }
 
-    // For YouTube videos requiring format merging via yt-dlp
+    // For YouTube, Bilibili, or DASH streams requiring format merging via yt-dlp
     downloadViaYtdlp(url, webpageUrl, safeFilename, res);
 });
 
@@ -222,8 +225,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
 
     ytdlp.on('close', (code) => {
         if (code === 0 && fs.existsSync(tempFilePath)) {
+            const stat = fs.statSync(tempFilePath);
             setContentDisposition(res, safeFilename);
             res.setHeader('Content-Type', 'video/mp4');
+            res.setHeader('Content-Length', stat.size);
+            res.setHeader('X-Content-Type-Options', 'nosniff');
 
             const fileStream = fs.createReadStream(tempFilePath);
             fileStream.pipe(res);
