@@ -42,10 +42,83 @@ def detect_platform(url, extractor_key=None):
     else:
         return {'id': 'general', 'name': extractor_key or '社群影音平台', 'icon': '🌐', 'color': '#3b82f6'}
 
+def _media_id_to_shortcode(media_id):
+    """Convert an Instagram/Threads integer media ID to its base64url shortcode."""
+    alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+    result = ''
+    n = int(media_id)
+    while n > 0:
+        result = alphabet[n % 64] + result
+        n //= 64
+    return result
+
+def _ytdlp_resolve(url):
+    """
+    Run yt-dlp on a Threads URL.  Returns the resolved post URL string if
+    successful, or raises an exception whose message may contain the real URL.
+    """
+    from yt_dlp import YoutubeDL
+    ydl_opts = {'quiet': True, 'no_warnings': True, 'skip_download': True, 'nocheckcertificate': True}
+    with YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        if info and info.get('webpage_url'):
+            resolved = info['webpage_url']
+            resolved = re.sub(r'https?://(www\.)?threads\.com', 'https://www.threads.net',
+                              resolved, flags=re.IGNORECASE)
+            return resolved.split('?')[0]
+    return None
+
+def resolve_threads_share(share_url):
+    """Resolve a Threads /share/ short-link to the real @username/post/ID URL.
+
+    Strategy:
+    1. Run yt-dlp; it internally follows the JS redirect and either succeeds or
+       raises "Unsupported URL: <real_url>".
+    2. From the error, try to extract "@username/post/ID".
+    3. If yt-dlp returned an "injected_media_ids" URL instead, decode the media
+       ID to a shortcode and try yt-dlp again on /p/<shortcode>/.
+    4. Fall back to the share URL if nothing works.
+    """
+    net_url = re.sub(r'https?://(www\.)?threads\.com', 'https://www.threads.net',
+                     share_url, flags=re.IGNORECASE)
+    try:
+        result = _ytdlp_resolve(net_url)
+        if result:
+            return result
+    except Exception as e:
+        err_str = str(e)
+        # Case A: error contains @username/post/ID
+        m = re.search(r'threads\.(?:com|net)/(@[^/\s?&"]+/post/[^/\s?&"]+)', err_str, re.IGNORECASE)
+        if m:
+            return f"https://www.threads.net/{m.group(1)}"
+
+        # Case B: error contains injected_media_ids with a numeric media ID
+        m2 = re.search(r'injected_media_ids[^"]*?%5B%22(\d+)', err_str)
+        if not m2:
+            m2 = re.search(r'injected_media_ids[^"]*?\["(\d+)', err_str)
+        if m2:
+            shortcode = _media_id_to_shortcode(m2.group(1))
+            candidate = f"https://www.threads.net/p/{shortcode}/"
+            try:
+                result2 = _ytdlp_resolve(candidate)
+                if result2:
+                    return result2
+            except Exception as e2:
+                err2 = str(e2)
+                m3 = re.search(r'threads\.(?:com|net)/(@[^/\s?&"]+/post/[^/\s?&"]+)', err2, re.IGNORECASE)
+                if m3:
+                    return f"https://www.threads.net/{m3.group(1)}"
+
+    return net_url  # fallback – will likely produce wrong results
+
 def normalize_url(url):
     url = url.strip()
+    # Handle threads.com → threads.net domain alias
     url = re.sub(r'https?://(www\.)?threads\.com', 'https://www.threads.net', url, flags=re.IGNORECASE)
     if 'threads.net' in url:
+        # /share/ short-links require JS to resolve – use yt-dlp to extract the real URL
+        if re.search(r'threads\.net/share/', url, re.IGNORECASE):
+            url = resolve_threads_share(url)
         m = re.search(r'threads\.net/(@[^/]+/post/[^/\?]+)', url, re.IGNORECASE)
         if m:
             url = f"https://www.threads.net/{m.group(1)}"
@@ -54,6 +127,7 @@ def normalize_url(url):
     elif 'tiktok.com' in url or 'douyin.com' in url:
         url = url.split('?')[0]
     return url
+
 
 def scrape_twitter_fallback(url):
     m = re.search(r'(?:twitter|x)\.com/([^/]+)/status/(\d+)', url, re.IGNORECASE)
@@ -615,6 +689,55 @@ def scrape_threads_fallback(url):
         return {"success": False, "error": f"Threads 解析失敗: {str(e)}"}
 
 
+def _friendly_error(err_msg, url=''):
+    """Convert raw yt-dlp error strings into friendly Traditional Chinese messages."""
+    e = err_msg.lower()
+
+    # Instagram rate-limit / login required
+    if 'instagram' in e or 'instagram' in url.lower():
+        if 'rate-limit' in e or 'rate limit' in e or 'login' in e or 'redirected to the login' in e:
+            return (
+                '⚠️ Instagram 今日解析次數已達上限（伺服器 IP 被 IG 暫時限制）。\n\n'
+                '📌 建議做法：\n'
+                '1. 請稍等 1～2 小時後再試。\n'
+                '2. 或改用手機直接在 IG App 內長按影片儲存。\n'
+                '3. 如果貼文有影片，可以試試從 Threads 分享的連結來下載。'
+            )
+        if 'private' in e or 'not accessible' in e:
+            return '❌ 此 Instagram 貼文為私人帳號內容，系統無法存取私人帳號的貼文，請確認該帳號是否為公開帳號。'
+
+    # Facebook private or login required
+    if 'facebook' in e or 'facebook' in url.lower() or 'fb.watch' in url.lower():
+        if 'login' in e or 'private' in e or 'not accessible' in e:
+            return '❌ 此 Facebook 影片為私人內容或需要登入才能觀看，系統無法下載私人貼文，請確認該影片是否設定為「公開」。'
+
+    # Bilibili login / region lock
+    if 'bilibili' in e or 'bilibili' in url.lower() or 'b23.tv' in url.lower():
+        if 'login' in e or 'vip' in e or 'member' in e:
+            return '❌ 此 B 站影片需要登入或 B 站大會員才能觀看，系統目前無法下載需要付費或登入的 B 站內容。'
+
+    # YouTube age restriction / private / live
+    if 'youtube' in e or 'youtube' in url.lower() or 'youtu.be' in url.lower():
+        if 'private' in e:
+            return '❌ 此 YouTube 影片為不公開或私人影片，無法下載。'
+        if 'age' in e or 'sign in' in e:
+            return '⚠️ 此 YouTube 影片有年齡限制，需要登入驗證才能存取，系統目前無法下載此類影片。'
+        if 'live' in e:
+            return '⚠️ 此 YouTube 影片為直播進行中，無法下載尚未結束的直播，請等直播結束後再試。'
+
+    # Generic network / timeout errors
+    if 'timeout' in e or 'timed out' in e or 'connection' in e or 'network' in e:
+        return '⚠️ 伺服器連線逾時或網路不穩，請稍後再試一次。'
+
+    # Generic unsupported URL
+    if 'unsupported url' in e or 'no video formats' in e:
+        return '❌ 無法辨識此連結的影音內容，請確認網址是否正確，以及該貼文是否包含影片或圖片。'
+
+    # Default fallback — still in Chinese but trimmed
+    short = err_msg[:120] if len(err_msg) > 120 else err_msg
+    return f'解析失敗，請確認連結是否正確且公開。（{short}）'
+
+
 def parse_url(target_url):
     clean_target_url = normalize_url(target_url)
 
@@ -820,7 +943,10 @@ def parse_url(target_url):
             tg_res = scrape_telegram_fallback(clean_target_url)
             if tg_res.get('success'):
                 return tg_res
-        return {"success": False, "error": f"解析失敗: {err_msg}"}
+
+        # Friendly Chinese error messages for common platform errors
+        friendly_msg = _friendly_error(err_msg, clean_target_url)
+        return {"success": False, "error": friendly_msg}
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
