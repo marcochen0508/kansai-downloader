@@ -701,6 +701,92 @@ def scrape_threads_fallback(url):
         return {"success": False, "error": f"Threads 解析失敗: {str(e)}"}
 
 
+def _scrape_ig_photo_fallback(url):
+    """Fallback scraper for Instagram photo posts when yt-dlp finds no video formats."""
+    clean_url = url.split('?')[0].rstrip('/')
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8',
+    }
+
+    # Build cookie header from ig_cookies.txt if available
+    cookie_header = ''
+    if os.path.isfile(_IG_COOKIE_FILE):
+        try:
+            with open(_IG_COOKIE_FILE, 'r', encoding='utf-8') as cf:
+                parts = []
+                for line in cf:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    cols = line.split('\t')
+                    if len(cols) >= 7:
+                        parts.append(f"{cols[5]}={cols[6]}")
+            cookie_header = '; '.join(parts)
+        except Exception:
+            pass
+    if cookie_header:
+        headers['Cookie'] = cookie_header
+
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(clean_url, headers=headers)
+        with urllib.request.urlopen(req, context=ctx, timeout=12) as resp:
+            html_text = resp.read().decode('utf-8')
+
+        # Extract OG tags
+        title_m = re.search(r'<meta\s+property="og:title"\s+content="([^"]*)"', html_text)
+        desc_m = re.search(r'<meta\s+property="og:description"\s+content="([^"]*)"', html_text)
+        thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', html_text)
+
+        title = html_lib.unescape(title_m.group(1)) if title_m else 'Instagram 貼文'
+        description = html_lib.unescape(desc_m.group(1)) if desc_m else ''
+        thumbnail = html_lib.unescape(thumb_m.group(1).replace('&amp;', '&')) if thumb_m else ''
+
+        # Extract all high-res images from display_resources / candidates
+        images = []
+        img_blocks = re.findall(r'"display_resources":\[(.*?)\]', html_text) or \
+                     re.findall(r'"candidates":\[(.*?)\]', html_text)
+        seen_img = set()
+        for block in img_blocks:
+            urls = re.findall(r'"src":"([^"]+)"', block) or re.findall(r'"url":"([^"]+)"', block)
+            for u in urls:
+                clean_u = html_lib.unescape(u.replace('\\/', '/').replace('\\u0026', '&'))
+                base = clean_u.split('?')[0]
+                if ('cdninstagram' in clean_u or 'fbcdn' in clean_u) and base not in seen_img and not clean_u.endswith('.mp4'):
+                    seen_img.add(base)
+                    images.append(clean_u)
+
+        if not images and thumbnail:
+            images.append(thumbnail)
+
+        if not images:
+            return {"success": False, "error": "無法提取此 Instagram 貼文的圖片，可能為私人帳號或需要登入。"}
+
+        # Extract uploader from URL
+        uploader = 'Instagram 創作者'
+        m_user = re.search(r'instagram\.com/([^/]+)/', clean_url)
+        if m_user and m_user.group(1) not in ('p', 'reel', 'reels', 'tv'):
+            uploader = f"@{m_user.group(1)}"
+
+        return {
+            "success": True,
+            "platform": {"id": "instagram", "name": "Instagram", "icon": "📸", "color": "#e1306c"},
+            "title": title,
+            "description": description,
+            "uploader": uploader,
+            "thumbnail": thumbnail,
+            "videos": [],
+            "audios": [],
+            "images": images[:10],
+            "webpage_url": clean_url
+        }
+    except Exception as e:
+        return {"success": False, "error": f"Instagram 照片解析失敗: {str(e)}"}
+
+
 def _friendly_error(err_msg, url=''):
     """Convert raw yt-dlp error strings into friendly Traditional Chinese messages."""
     e = err_msg.lower()
@@ -778,6 +864,7 @@ def parse_url(target_url):
         if red_res.get('success'):
             return red_res
 
+    is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -787,6 +874,9 @@ def parse_url(target_url):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         **_get_cookie_opts(clean_target_url),
     }
+    # Instagram photo posts: don't fail on "No video formats found", we'll extract images instead
+    if is_ig_url:
+        ydl_opts['ignore_no_formats_error'] = True
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
@@ -955,6 +1045,11 @@ def parse_url(target_url):
 
     except Exception as e:
         err_msg = str(e)
+        # Instagram photo post: yt-dlp says "No video formats found" but post has images
+        if is_ig_url and 'no video formats' in err_msg.lower():
+            ig_photo_res = _scrape_ig_photo_fallback(clean_target_url)
+            if ig_photo_res.get('success'):
+                return ig_photo_res
         if 'tiktok.com' in clean_target_url or 'douyin.com' in clean_target_url:
             tt_res = scrape_tiktok_fallback(clean_target_url)
             if tt_res.get('success'):
