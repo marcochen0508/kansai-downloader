@@ -77,6 +77,8 @@ app.get('/api/download', async (req, res) => {
     }
 
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
+    const formatId = req.query.formatId || '';  // must be declared before isFacebookDash
+
     const isYouTube = webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'));
     const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || url.includes('.m4s');
     // Instagram uses yt-dlp because IG CDN links expire quickly and require fresh extraction
@@ -89,8 +91,8 @@ app.get('/api/download', async (req, res) => {
     // Route platforms requiring audio+video merging through yt-dlp
     const requiresYtdlpMerge = isYouTube || isBilibili || isInstagram || isFacebookDash;
 
-    const formatId = req.query.formatId || '';
     const isDirectStream = formatId === 'direct' || type === 'image' || type === 'audio';
+
     
     // Stream directly with redirect + yt-dlp fallback for all non-DASH video platforms (including Facebook)
     if (isDirectStream || (type === 'video' && !requiresYtdlpMerge && url.startsWith('http'))) {
