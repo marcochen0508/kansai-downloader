@@ -839,6 +839,7 @@ def parse_url(target_url):
 
             seen_res = set()
             is_youtube = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
+            is_instagram = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
 
             for f in raw_formats:
                 f_url = f.get('url')
@@ -852,7 +853,13 @@ def parse_url(target_url):
                 format_note = f.get('format_note', '') or ''
                 filesize = f.get('filesize') or f.get('filesize_approx') or 0
                 format_id = f.get('format_id') or ''
-                
+
+                # Instagram: skip video-only DASH streams (no audio).
+                # Render free tier can't reliably merge DASH streams with ffmpeg.
+                # Progressive formats (has both audio+video) are reliable and already contain audio.
+                if is_instagram and vcodec != 'none' and acodec == 'none':
+                    continue
+
                 size_str = ""
                 if filesize > 0:
                     size_mb = filesize / (1024 * 1024)
@@ -873,11 +880,14 @@ def parse_url(target_url):
                     elif height > 0:
                         res_label = f"{height}p"
 
-                    # For YouTube: tag progressive (combined) formats as 'direct' so server can stream without merge
                     effective_format_id = format_id
+                    # YouTube: tag progressive (combined) formats as 'direct' so server streams without merge
                     if is_youtube and acodec != 'none' and vcodec != 'none':
                         effective_format_id = 'direct'
                         res_label += ' (直接下載)'
+                    # Instagram: all remaining formats already have audio → mark as 'direct' for fast CDN streaming
+                    elif is_instagram and acodec != 'none' and vcodec != 'none':
+                        effective_format_id = 'direct'
 
                     res_key = f"{height}"
                     if res_key not in seen_res:
