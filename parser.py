@@ -885,11 +885,12 @@ def parse_url(target_url):
             if not info:
                 return {"success": False, "error": "無法解析該網址，請確認連結是否公開且正確。"}
 
+            raw_entries = []
             if 'entries' in info and info['entries']:
-                entries = [e for e in info['entries'] if e]
-                if len(entries) > 0:
-                    info = entries[0]
-            
+                raw_entries = [e for e in info['entries'] if e]
+                if len(raw_entries) > 0:
+                    info = raw_entries[0]
+
             extractor = info.get('extractor_key', '') or info.get('extractor', '')
             platform = detect_platform(clean_target_url, extractor)
 
@@ -916,16 +917,32 @@ def parse_url(target_url):
             if uploader and uploader not in title and not title.startswith(uploader):
                 title = f"{uploader} - {title}"
 
-            raw_formats = info.get('formats', [])
+            raw_formats = []
             video_options = []
             audio_options = []
             images = []
+            seen_image_urls = set()
 
-            thumbnails = info.get('thumbnails', [])
-            if thumbnails:
-                sorted_thumbs = sorted([t for t in thumbnails if t.get('url')], key=lambda x: (x.get('width', 0) or 0)*(x.get('height', 0) or 0), reverse=True)
-                if sorted_thumbs:
-                    images.append(sorted_thumbs[0]['url'])
+            entries_list = raw_entries if raw_entries else [info]
+
+
+            # Iterate over all entries in a carousel post (e.g. IG multi-photo / multi-video post)
+            for item_info in entries_list:
+                # 1. Extract best image/thumbnail for this entry
+                item_thumbs = item_info.get('thumbnails', [])
+                if item_thumbs:
+                    sorted_thumbs = sorted([t for t in item_thumbs if t.get('url')], key=lambda x: (x.get('width', 0) or 0)*(x.get('height', 0) or 0), reverse=True)
+                    if sorted_thumbs:
+                        img_url = sorted_thumbs[0]['url']
+                        img_base = img_url.split('?')[0]
+                        if img_base not in seen_image_urls:
+                            seen_image_urls.add(img_base)
+                            images.append(img_url)
+
+                # 2. Collect formats for this entry
+                item_formats = item_info.get('formats', [])
+                if item_formats:
+                    raw_formats.extend(item_formats)
 
             seen_res = set()
             is_youtube = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
@@ -944,9 +961,6 @@ def parse_url(target_url):
                 format_note = f.get('format_note', '') or ''
                 filesize = f.get('filesize') or f.get('filesize_approx') or 0
                 format_id = f.get('format_id') or ''
-
-                # Instagram / Facebook progressive formats (has audio + video) → mark as 'direct' for fast CDN streaming.
-                # DASH video-only formats are kept but stay as-is; server will re-run yt-dlp to merge audio+video.
 
                 size_str = ""
                 if filesize > 0:
@@ -993,6 +1007,7 @@ def parse_url(target_url):
                             'format_id': effective_format_id,
                             'webpage_url': webpage_url
                         })
+
 
                 elif acodec != 'none' and vcodec == 'none':
                     abr = f.get('abr') or 128
