@@ -79,9 +79,11 @@ app.get('/api/download', async (req, res) => {
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
     const isYouTube = webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'));
     const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || url.includes('.m4s');
-    // Instagram uses yt-dlp for H.264 codec enforcement (IG CDN links expire quickly)
+    // Instagram uses yt-dlp because IG CDN links expire quickly and require fresh extraction
+    // Facebook CDN progressive MP4 already has audio + H.264, so it uses fetchAndStream directly
     const isInstagram = webpageUrl && (webpageUrl.includes('instagram.com') || webpageUrl.includes('instagr.am'));
     
+    // Route platforms requiring H.264/AAC codec selection and DASH container merging through yt-dlp for iOS playback compatibility
     const requiresYtdlpMerge = isYouTube || isBilibili || isInstagram;
 
     const formatId = req.query.formatId || '';
@@ -96,7 +98,7 @@ app.get('/api/download', async (req, res) => {
         return fetchAndStream(url, res, webpageUrl, safeFilename);
     }
 
-    // For YouTube, Bilibili (DASH), or Instagram — force yt-dlp with H.264/AAC codec selection
+    // For YouTube, Bilibili, or Instagram — force yt-dlp with H.264/AAC codec selection
     downloadViaYtdlp(url, webpageUrl, safeFilename, res);
 });
 
@@ -157,6 +159,8 @@ function fetchAndStream(mediaUrl, res, webpageUrl, safeFilename, redirectCount =
             referer = 'https://www.bilibili.com/';
         } else if (parsed.hostname.includes('tiktok') || parsed.hostname.includes('tiktokcdn')) {
             referer = 'https://www.tiktok.com/';
+        } else if (parsed.hostname.includes('facebook') || parsed.hostname.includes('fbcdn') || parsed.hostname.includes('fbsbx')) {
+            referer = 'https://www.facebook.com/';
         }
 
         const options = {
