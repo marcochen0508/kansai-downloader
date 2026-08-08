@@ -80,11 +80,14 @@ app.get('/api/download', async (req, res) => {
     const isYouTube = webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'));
     const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || url.includes('.m4s');
     // Instagram uses yt-dlp because IG CDN links expire quickly and require fresh extraction
-    // Facebook CDN progressive MP4 already has audio + H.264, so it uses fetchAndStream directly
+    // Facebook CDN progressive MP4 (formatId='direct') streams directly; DASH video-only needs yt-dlp merge
     const isInstagram = webpageUrl && (webpageUrl.includes('instagram.com') || webpageUrl.includes('instagr.am'));
-    
-    // Route platforms requiring H.264/AAC codec selection and DASH container merging through yt-dlp for iOS playback compatibility
-    const requiresYtdlpMerge = isYouTube || isBilibili || isInstagram;
+    const isFacebookDash = webpageUrl &&
+        (webpageUrl.includes('facebook.com') || webpageUrl.includes('fb.watch') || webpageUrl.includes('fb.com')) &&
+        formatId !== 'direct';  // Facebook DASH video-only (not a progressive/direct format)
+
+    // Route platforms requiring audio+video merging through yt-dlp
+    const requiresYtdlpMerge = isYouTube || isBilibili || isInstagram || isFacebookDash;
 
     const formatId = req.query.formatId || '';
     const isDirectStream = formatId === 'direct' || type === 'image' || type === 'audio';
@@ -225,10 +228,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
     const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.mp4`);
 
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
+    const isFacebookUrl = targetUrl.includes('facebook') || targetUrl.includes('fb.watch') || targetUrl.includes('fbcdn');
 
-    // Instagram: prefer pre-merged progressive formats (faster, avoids ffmpeg DASH merge timeout on Render)
+    // Instagram / Facebook: prefer pre-merged progressive formats (faster, avoids ffmpeg DASH merge timeout on Render)
     // Fall back to DASH merge only if no progressive format is available
-    const formatStr = isInstagramUrl
+    const formatStr = (isInstagramUrl || isFacebookUrl)
         ? 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best'
         : 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
 
