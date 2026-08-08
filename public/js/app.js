@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/TikTok video #\d+/gi, 'TikTok短影音')
             .replace(/video #\d+/gi, '短影音')
             .replace(/video by \w+/gi, '')
+            .replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB\u300C\u300D]/g, '')  // Unicode quotes
             .replace(/[\\/:*?"<>|#]/g, '_')
             .replace(/\s+/g, '_')
             .replace(/_+/g, '_')
