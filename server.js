@@ -241,6 +241,13 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
         args.push('--add-header', 'Referer:https://www.instagram.com/');
     }
 
+    // Inject Meta (IG/Threads/FB) cookie file to bypass IP rate-limit blocks
+    const isMeta = targetUrl.includes('instagram') || targetUrl.includes('threads') || targetUrl.includes('facebook') || targetUrl.includes('fb.watch');
+    const cookieFile = path.join(__dirname, 'ig_cookies.txt');
+    if (isMeta && fs.existsSync(cookieFile)) {
+        args.push('--cookies', cookieFile);
+    }
+
     const ytdlp = spawn('python', ['-m', 'yt_dlp', ...args]);
 
     ytdlp.on('close', (code) => {

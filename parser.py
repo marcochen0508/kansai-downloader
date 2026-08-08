@@ -14,6 +14,18 @@ for d in site_dirs:
     if d not in sys.path:
         sys.path.insert(0, d)
 
+# Cookie file path (same directory as this script)
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_IG_COOKIE_FILE = os.path.join(_SCRIPT_DIR, 'ig_cookies.txt')
+
+def _get_cookie_opts(url=''):
+    """Return cookiefile option if ig_cookies.txt exists and URL is Meta (IG/Threads/FB)."""
+    url_lower = url.lower()
+    is_meta = any(d in url_lower for d in ['instagram.com', 'instagr.am', 'threads.net', 'threads.com', 'facebook.com', 'fb.watch', 'fb.com'])
+    if is_meta and os.path.isfile(_IG_COOKIE_FILE):
+        return {'cookiefile': _IG_COOKIE_FILE}
+    return {}
+
 # Force stdout to UTF-8 for Windows compatibility
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -58,7 +70,7 @@ def _ytdlp_resolve(url):
     successful, or raises an exception whose message may contain the real URL.
     """
     from yt_dlp import YoutubeDL
-    ydl_opts = {'quiet': True, 'no_warnings': True, 'skip_download': True, 'nocheckcertificate': True}
+    ydl_opts = {'quiet': True, 'no_warnings': True, 'skip_download': True, 'nocheckcertificate': True, **_get_cookie_opts(url)}
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
         if info and info.get('webpage_url'):
@@ -773,6 +785,7 @@ def parse_url(target_url):
         'allow_unplayable_formats': True,
         'nocheckcertificate': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        **_get_cookie_opts(clean_target_url),
     }
 
     try:
