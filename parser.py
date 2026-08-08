@@ -855,11 +855,8 @@ def parse_url(target_url):
                 filesize = f.get('filesize') or f.get('filesize_approx') or 0
                 format_id = f.get('format_id') or ''
 
-                # Instagram / Facebook: skip video-only DASH streams (no audio).
-                # Render free tier can't reliably merge DASH streams with ffmpeg.
-                # Progressive formats (has both audio+video) are reliable and already contain audio.
-                if (is_instagram or is_facebook) and vcodec != 'none' and acodec == 'none':
-                    continue
+                # Instagram / Facebook progressive formats (has audio + video) → mark as 'direct' for fast CDN streaming.
+                # DASH video-only formats are kept but stay as-is; server will re-run yt-dlp to merge audio+video.
 
                 size_str = ""
                 if filesize > 0:
@@ -886,9 +883,12 @@ def parse_url(target_url):
                     if is_youtube and acodec != 'none' and vcodec != 'none':
                         effective_format_id = 'direct'
                         res_label += ' (直接下載)'
-                    # Instagram / Facebook: all remaining formats already have audio → mark as 'direct' for fast CDN streaming
+                    # Instagram / Facebook progressive (has audio): mark as 'direct' for fast CDN streaming
                     elif (is_instagram or is_facebook) and acodec != 'none' and vcodec != 'none':
                         effective_format_id = 'direct'
+                    # Instagram / Facebook DASH video-only: keep format_id as-is, server will use yt-dlp to merge
+                    elif (is_instagram or is_facebook) and acodec == 'none':
+                        res_label += ' (需合併音訊)'
 
                     res_key = f"{height}"
                     if res_key not in seen_res:

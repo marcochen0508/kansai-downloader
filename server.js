@@ -224,12 +224,21 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
     const targetUrl = webpageUrl || url;
     const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.mp4`);
 
+    const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
+
+    // Instagram: prefer pre-merged progressive formats (faster, avoids ffmpeg DASH merge timeout on Render)
+    // Fall back to DASH merge only if no progressive format is available
+    const formatStr = isInstagramUrl
+        ? 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best'
+        : 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
+
     const args = [
         targetUrl,
-        '-f', 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
+        '-f', formatStr,
         '--merge-output-format', 'mp4',
         '-o', tempFilePath
     ];
+
 
     if (ffmpegPath) {
         args.push('--ffmpeg-location', ffmpegPath);
