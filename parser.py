@@ -314,124 +314,157 @@ def scrape_telegram_fallback(url):
 
 def scrape_threads_fallback(url):
     clean_url = normalize_url(url)
-    
     headers = {
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-        'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8',
     }
-    
-    req = urllib.request.Request(clean_url, headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            html_text = resp.read().decode('utf-8')
-            
-            # Extract video URLs
-            raw_video_urls = set()
-            vids = re.findall(r'"video_versions":\[(.*?)\]', html_text)
-            for v in vids:
-                urls = re.findall(r'"url":"([^"]+)"', v)
-                for u in urls:
-                    clean_u = html_lib.unescape(u.replace('\\/', '/').replace('\\u0026', '&'))
-                    raw_video_urls.add(clean_u)
-                    
-            if not raw_video_urls:
-                mp4_matches = re.findall(r'https:[^\s"&]*?\.mp4[^\s"&]*', html_text)
-                for m in mp4_matches:
-                    clean_u = html_lib.unescape(urllib.parse.unquote(m).replace('\\/', '/').replace('\\u0026', '&'))
-                    raw_video_urls.add(clean_u)
 
-            # Deduplicate video URLs
-            unique_video_list = []
-            seen_video_bases = set()
-            for v in list(raw_video_urls):
-                base_path = v.split('?')[0]
+    try:
+        html_text = ""
+        try:
+            from curl_cffi import requests as cffi_requests
+            r = cffi_requests.get(clean_url, headers=headers, impersonate="chrome120", timeout=10)
+            if r.status_code == 200:
+                html_text = r.text
+        except Exception:
+            pass
+
+        if not html_text:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(clean_url, headers=headers)
+            with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
+                html_text = resp.read().decode('utf-8')
+
+        title_m = re.search(r'<meta\s+property="og:title"\s+content="([^"]*)"', html_text) or re.search(r'<title>([^<]*)</title>', html_text)
+        title = html_lib.unescape(title_m.group(1)) if title_m else "Threads 貼文"
+        
+        desc_m = re.search(r'<meta\s+property="og:description"\s+content="([^"]*)"', html_text) or re.search(r'<meta\s+name="description"\s+content="([^"]*)"', html_text)
+        description = html_lib.unescape(desc_m.group(1)) if desc_m else ""
+
+        uploader = "Threads 創作者"
+        m_user = re.search(r'@([a-zA-Z0-9_\.]+)', clean_url)
+        if m_user:
+            uploader = f"@{m_user.group(1)}"
+
+        # 1. Extract video URLs strictly from JSON video_versions structure
+        video_version_matches = re.findall(r'"video_versions"\s*:\s*(\[[^\]]+\])', html_text)
+        unique_video_list = []
+        seen_video_bases = set()
+
+        for vv in video_version_matches:
+            urls = re.findall(r'"url"\s*:\s*"([^"]+)"', vv)
+            for u in urls:
+                clean_u = html_lib.unescape(u.replace('\\/', '/').replace('\\u0026', '&'))
+                base_path = clean_u.split('?')[0]
                 if base_path not in seen_video_bases:
                     seen_video_bases.add(base_path)
-                    unique_video_list.append(v)
+                    unique_video_list.append(clean_u)
 
-            # Thumbnail / Cover Image
-            thumbnail = ""
-            thumb_m = re.search(r'<meta\s+property="og:image"[^>]*content="([^"]*)"', html_text)
-            if thumb_m:
-                thumbnail = html_lib.unescape(thumb_m.group(1).replace('&amp;', '&'))
+        # Fallback for video extraction if video_versions array was missing
+        if not unique_video_list:
+            raw_videos = re.findall(r'https:[^"\']+\.mp4[^"\']*', html_text)
+            for v in raw_videos:
+                cv = html_lib.unescape(v.replace('\\/', '/').replace('\\u0026', '&'))
+                if 'rsrc.php' in cv:
+                    continue
+                base_path = cv.split('?')[0]
+                if base_path not in seen_video_bases:
+                    seen_video_bases.add(base_path)
+                    unique_video_list.append(cv)
 
-            # Extract photos
-            unique_image_list = []
-            if unique_video_list:
+        # 2. Extract cover image / thumbnail (avoid profile pictures)
+        thumbnail = ""
+        # Priority A: Check for video cover frames (t15.cdninstagram or /t15.)
+        v_covers = re.findall(r'https:[^"\']+/t15\.[^"\']+\.jpg[^"\']*', html_text)
+        if v_covers:
+            thumbnail = html_lib.unescape(v_covers[0].replace('\\/', '/').replace('\\u0026', '&'))
+
+        if not thumbnail:
+            cover_matches = re.findall(r'"image_versions2"\s*:\s*\{[^}]*"candidates"\s*:\s*(\[[^\]]+\])', html_text)
+            for cm in cover_matches:
+                srcs = re.findall(r'"url"\s*:\s*"([^"]+)"', cm)
+                for s in srcs:
+                    clean_s = html_lib.unescape(s.replace('\\/', '/').replace('\\u0026', '&'))
+                    if 'cdninstagram' in clean_s and 'profile' not in clean_s and 's150x150' not in clean_s:
+                        thumbnail = clean_s
+                        break
                 if thumbnail:
-                    unique_image_list.append(thumbnail)
-            else:
-                raw_image_urls = set()
-                imgs = re.findall(r'"display_resources":\[(.*?)\]', html_text) or re.findall(r'"candidates":\[(.*?)\]', html_text)
-                for img_block in imgs:
-                    urls = re.findall(r'"src":"([^"]+)"', img_block) or re.findall(r'"url":"([^"]+)"', img_block)
-                    for u in urls:
-                        clean_u = html_lib.unescape(u.replace('\\/', '/').replace('\\u0026', '&'))
-                        if ('cdninstagram' in clean_u or 'fbcdn' in clean_u) and not clean_u.endswith('.mp4'):
+                    break
+
+        if not thumbnail:
+            thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', html_text)
+            if thumb_m:
+                cand = html_lib.unescape(thumb_m.group(1).replace('&amp;', '&'))
+                if 'profile_pic' not in cand and 'profile' not in cand:
+                    thumbnail = cand
+
+        # 3. Extract post images (only from post display_resources/candidates, excluding profile photos)
+        unique_image_list = []
+        if not unique_video_list:
+            raw_image_urls = set()
+            imgs = re.findall(r'"display_resources":\[(.*?)\]', html_text) or re.findall(r'"candidates":\[(.*?)\]', html_text)
+            for img_block in imgs:
+                urls = re.findall(r'"src":"([^"]+)"', img_block) or re.findall(r'"url":"([^"]+)"', img_block)
+                for u in urls:
+                    clean_u = html_lib.unescape(u.replace('\\/', '/').replace('\\u0026', '&'))
+                    if ('cdninstagram' in clean_u or 'fbcdn' in clean_u) and not clean_u.endswith('.mp4'):
+                        if 'profile' not in clean_u and 's150x150' not in clean_u and 'rsrc.php' not in clean_u:
                             raw_image_urls.add(clean_u)
 
-                if not raw_image_urls and thumbnail:
-                    raw_image_urls.add(thumbnail)
+            seen_img_bases = set()
+            for img in list(raw_image_urls):
+                base_path = img.split('?')[0]
+                if base_path not in seen_img_bases:
+                    seen_img_bases.add(base_path)
+                    unique_image_list.append(img)
 
-                seen_img_bases = set()
-                for img in list(raw_image_urls):
-                    base_path = img.split('?')[0]
-                    if base_path not in seen_img_bases:
-                        seen_img_bases.add(base_path)
-                        unique_image_list.append(img)
+        video_options = []
+        audio_options = []
+        for i, v_url in enumerate(unique_video_list):
+            label = f"影片 {i + 1} (高畫質 MP4)" if len(unique_video_list) > 1 else "高畫質影片 (MP4)"
+            video_options.append({
+                'quality': label,
+                'height': 720,
+                'ext': 'mp4',
+                'has_audio': True,
+                'size': '',
+                'url': v_url,
+                'thumbnail': thumbnail,
+                'format_id': 'direct',
+                'webpage_url': clean_url
+            })
 
-            # Caption & Title
-            desc_m = re.search(r'<meta\s+property="og:description"[^>]*content="([^"]*)"', html_text)
-            description = html_lib.unescape(desc_m.group(1)) if desc_m else ""
-            
-            uploader = "Threads 創作者"
-            m_user = re.search(r'@([a-zA-Z0-9_\.]+)', clean_url)
-            if m_user:
-                uploader = f"@{m_user.group(1)}"
+            audio_label = f"提取影片 {i + 1} 原聲 (MP3)" if len(unique_video_list) > 1 else "提取原聲 (MP3)"
+            audio_options.append({
+                'quality': audio_label,
+                'ext': 'mp3',
+                'size': '',
+                'url': v_url,
+                'thumbnail': thumbnail,
+                'format_id': 'bestaudio',
+                'webpage_url': clean_url
+            })
 
-            title = description[:45] if description else "Threads 影音動態"
-            if uploader and uploader not in title:
-                title = f"{uploader} - {title}"
+        platform = {"id": "threads", "name": "Threads", "icon": "🧵", "color": "#000000"}
 
-            videos = []
-            audios = []
-            for i, v_url in enumerate(unique_video_list):
-                label = f"影片 {i + 1} (高畫質 MP4)" if len(unique_video_list) > 1 else "高畫質影片 (MP4)"
-                videos.append({
-                    'quality': label,
-                    'height': 720,
-                    'ext': 'mp4',
-                    'has_audio': True,
-                    'size': '',
-                    'url': v_url,
-                    'format_id': 'direct',
-                    'webpage_url': clean_url
-                })
-
-                audio_label = f"提取影片 {i + 1} 原聲 (MP3)" if len(unique_video_list) > 1 else "提取原聲 (MP3)"
-                audios.append({
-                    'quality': audio_label,
-                    'ext': 'mp3',
-                    'size': '',
-                    'url': v_url,
-                    'format_id': 'bestaudio',
-                    'webpage_url': clean_url
-                })
-
-            return {
-                "success": True,
-                "platform": {"id": "threads", "name": "Threads", "icon": "🧵", "color": "#000000"},
-                "title": title,
-                "description": description,
-                "uploader": uploader,
-                "thumbnail": thumbnail,
-                "videos": videos,
-                "audios": audios,
-                "images": unique_image_list[:8],
-                "webpage_url": clean_url
-            }
+        return {
+            "success": True,
+            "platform": platform,
+            "title": title,
+            "description": description or title,
+            "uploader": uploader,
+            "thumbnail": thumbnail,
+            "videos": video_options,
+            "audios": audio_options,
+            "images": unique_image_list[:8],
+            "webpage_url": clean_url
+        }
     except Exception as e:
         return {"success": False, "error": f"Threads 解析失敗: {str(e)}"}
+
 
 def scrape_tiktok_fallback(url):
     clean_url = normalize_url(url)
@@ -576,129 +609,7 @@ def scrape_red_fallback(url):
     except Exception as e:
         return {"success": False, "error": f"小紅書解析失敗: {str(e)}"}
 
-def scrape_threads_fallback(url):
-    clean_url = url.replace('threads.com', 'threads.net').split('?')[0].rstrip('/')
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8',
-    }
 
-    try:
-        html_text = ""
-        try:
-            from curl_cffi import requests as cffi_requests
-            r = cffi_requests.get(clean_url, headers=headers, impersonate="chrome120", timeout=10)
-            if r.status_code == 200:
-                html_text = r.text
-        except Exception:
-            pass
-
-        if not html_text:
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            req = urllib.request.Request(clean_url, headers=headers)
-            with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
-                html_text = resp.read().decode('utf-8')
-
-        title_m = re.search(r'<meta\s+property="og:title"\s+content="([^"]*)"', html_text) or re.search(r'<title>([^<]*)</title>', html_text)
-        title = html_lib.unescape(title_m.group(1)) if title_m else "Threads 貼文"
-        
-        desc_m = re.search(r'<meta\s+property="og:description"\s+content="([^"]*)"', html_text) or re.search(r'<meta\s+name="description"\s+content="([^"]*)"', html_text)
-        description = html_lib.unescape(desc_m.group(1)) if desc_m else ""
-
-        thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', html_text)
-        thumbnail = html_lib.unescape(thumb_m.group(1)) if thumb_m else ""
-
-        # Extract primary video URL (filter out duplicate segment streams)
-        raw_videos = re.findall(r'https:[^"\']+\.mp4[^"\']*', html_text)
-        best_video_url = None
-        for v in raw_videos:
-            cv = html_lib.unescape(v.replace('\\/', '/').replace('\\u0026', '&'))
-            if 'progressive' in cv or '720' in cv:
-                best_video_url = cv
-                break
-        if not best_video_url and raw_videos:
-            best_video_url = html_lib.unescape(raw_videos[0].replace('\\/', '/').replace('\\u0026', '&'))
-
-        video_options = []
-        audio_options = []
-        if best_video_url:
-            video_options.append({
-                "quality": "高畫質影片 (MP4)",
-                "height": 720,
-                "ext": "mp4",
-                "has_audio": True,
-                "size": "",
-                "url": best_video_url,
-                "thumbnail": thumbnail,
-                "format_id": "direct",
-                "webpage_url": clean_url
-            })
-            audio_options.append({
-                "quality": "提取原聲 (MP3)",
-                "ext": "mp3",
-                "size": "",
-                "url": best_video_url,
-                "thumbnail": thumbnail,
-                "format_id": "bestaudio",
-                "webpage_url": clean_url
-            })
-
-        # Deduplicate images cleanly & filter out video cover frame thumbnails
-        clean_images = []
-        seen_image_keys = set()
-        
-        raw_images = re.findall(r'https:[^"\']+\.jpg[^"\']*', html_text)
-        for img in raw_images:
-            ci = html_lib.unescape(img.replace('\\/', '/').replace('\\u0026', '&'))
-            if 'cdninstagram.com' not in ci or '.mp4' in ci or 's150x150' in ci or 'rsrc.php' in ci or 'profile' in ci:
-                continue
-            
-            # Decode efg query param if present to detect video cover frames
-            efg_m = re.search(r'efg=([A-Za-z0-9%_\-]+)', ci)
-            if efg_m:
-                try:
-                    efg_raw = urllib.parse.unquote(efg_m.group(1))
-                    efg_raw += '=' * (-len(efg_raw) % 4)
-                    decoded_efg = base64.b64decode(efg_raw).decode('utf-8', errors='ignore').lower()
-                    if 'video' in decoded_efg or 'cover_frame' in decoded_efg:
-                        continue
-                except Exception:
-                    pass
-
-            if 'video' in ci.lower() or 'cover_frame' in ci.lower():
-                continue
-            
-            # Extract photo asset id for dedup (prefer xpv_asset_id from efg, fall back to ig_cache_key)
-            photo_asset_id = None
-            cache_key_m = re.search(r'ig_cache_key=([A-Za-z0-9_\-]+)', ci)
-            if cache_key_m:
-                photo_asset_id = cache_key_m.group(1)
-            else:
-                photo_asset_id = ci.split('?')[0]
-            
-            if photo_asset_id not in seen_image_keys:
-                seen_image_keys.add(photo_asset_id)
-                clean_images.append(ci)
-
-        platform = {"id": "threads", "name": "Threads", "icon": "🧵", "color": "#000000"}
-
-        return {
-            "success": True,
-            "platform": platform,
-            "title": title,
-            "description": description or title,
-            "uploader": "Threads 創作者",
-            "thumbnail": thumbnail,
-            "videos": video_options,
-            "audios": audio_options,
-            "images": clean_images[:5],
-            "webpage_url": clean_url
-        }
-    except Exception as e:
-        return {"success": False, "error": f"Threads 解析失敗: {str(e)}"}
 
 
 def _scrape_ig_photo_fallback(url):
