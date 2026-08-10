@@ -60,24 +60,31 @@ app.post('/api/parse', (req, res) => {
         if (hasResponded) return;
         hasResponded = true;
 
+        // Safely extract the last JSON object from python stdout (bypasses any yt-dlp error/warning log prefixes)
+        const jsonStart = outputData.lastIndexOf('{');
+        const jsonEnd = outputData.lastIndexOf('}');
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            try {
+                const jsonStr = outputData.substring(jsonStart, jsonEnd + 1);
+                const result = JSON.parse(jsonStr);
+                return res.json(result);
+            } catch (e) {
+                console.error('Failed to parse extracted JSON substring:', e);
+            }
+        }
+
         if (code !== 0) {
             console.error(`Parser process exited with code ${code}:`, errorData);
             return res.status(500).json({ 
                 success: false, 
-                error: `解析程式執行失敗: ${errorData || '未知錯誤'}` 
+                error: `解析程式執行失敗: ${errorData || '請確認連結是否正確與公開'}` 
             });
         }
 
-        try {
-            const result = JSON.parse(outputData.trim());
-            return res.json(result);
-        } catch (e) {
-            console.error('Failed to parse Python JSON output:', outputData);
-            return res.status(500).json({ 
-                success: false, 
-                error: '解析回應格式錯誤，請重試。' 
-            });
-        }
+        return res.status(500).json({ 
+            success: false, 
+            error: '解析回應格式錯誤，請重試。' 
+        });
     });
 });
 
