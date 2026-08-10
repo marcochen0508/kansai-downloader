@@ -789,14 +789,6 @@ def parse_url(target_url):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         **_get_cookie_opts(clean_target_url),
     }
-    # YouTube age-restricted & DRM bypass using android_vr and ios player clients
-    if is_yt_url:
-        ydl_opts['extractor_args'] = {
-            'youtube': {
-                'player_client': ['android_vr', 'ios', 'android', 'web']
-            }
-        }
-
     # Instagram photo posts: don't fail on "No video formats found", we'll extract images instead
     if is_ig_url:
         ydl_opts['ignore_no_formats_error'] = True
@@ -808,21 +800,12 @@ def parse_url(target_url):
                 info = ydl.extract_info(clean_target_url, download=False)
         except Exception as e:
             if is_yt_url:
-                # Fallback 1: Try android_vr and android player clients
+                # Fallback: Try plain default YoutubeDL without custom headers
                 try:
-                    opts_fb1 = dict(ydl_opts)
-                    opts_fb1['extractor_args'] = {'youtube': {'player_client': ['android_vr', 'android']}}
-                    with YoutubeDL(opts_fb1) as ydl_fb1:
-                        info = ydl_fb1.extract_info(clean_target_url, download=False)
+                    with YoutubeDL({'quiet': True, 'skip_download': True}) as ydl_fb:
+                        info = ydl_fb.extract_info(clean_target_url, download=False)
                 except Exception:
-                    # Fallback 2: Try web_embedded and ios clients
-                    try:
-                        opts_fb2 = dict(ydl_opts)
-                        opts_fb2['extractor_args'] = {'youtube': {'player_client': ['web_embedded', 'ios', 'android']}}
-                        with YoutubeDL(opts_fb2) as ydl_fb2:
-                            info = ydl_fb2.extract_info(clean_target_url, download=False)
-                    except Exception:
-                        raise e
+                    raise e
             else:
                 raise e
 
