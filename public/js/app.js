@@ -315,4 +315,93 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.classList.remove('show');
         }, 3000);
     }
+
+    // PWA Add to Home Screen Prompt Handler
+    let deferredPrompt = null;
+
+    const pwaModalOverlay = document.getElementById('pwaModalOverlay');
+    const btnPwaClose = document.getElementById('btnPwaClose');
+    const btnPwaInstall = document.getElementById('btnPwaInstall');
+    const btnPwaDismiss = document.getElementById('btnPwaDismiss');
+    const pwaIosGuide = document.getElementById('pwaIosGuide');
+    const pwaAndroidGuide = document.getElementById('pwaAndroidGuide');
+    const btnHeaderInstall = document.getElementById('btnHeaderInstall');
+
+    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    const userAgentStr = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(userAgentStr) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    function showPwaModal() {
+        if (!pwaModalOverlay) return;
+
+        if (isIOS) {
+            // iOS Safari layout: Step-by-step guidance
+            pwaIosGuide.style.display = 'block';
+            pwaAndroidGuide.style.display = 'none';
+            btnPwaInstall.innerHTML = '<i class="fa-solid fa-check"></i> 我知道了';
+            btnPwaInstall.onclick = hidePwaModal;
+        } else {
+            // Android / Desktop layout: Direct trigger native prompt
+            pwaIosGuide.style.display = 'none';
+            pwaAndroidGuide.style.display = 'block';
+            btnPwaInstall.innerHTML = '<i class="fa-solid fa-mobile-screen-button"></i> 立即新增到桌面';
+            btnPwaInstall.onclick = async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        localStorage.setItem('pwa_prompt_dismissed', 'true');
+                    }
+                    deferredPrompt = null;
+                }
+                hidePwaModal();
+            };
+        }
+
+        pwaModalOverlay.style.display = 'flex';
+    }
+
+    function hidePwaModal() {
+        if (pwaModalOverlay) {
+            pwaModalOverlay.style.display = 'none';
+        }
+        localStorage.setItem('pwa_prompt_dismissed', 'true');
+    }
+
+    if (btnPwaClose) btnPwaClose.addEventListener('click', hidePwaModal);
+    if (btnPwaDismiss) btnPwaDismiss.addEventListener('click', hidePwaModal);
+    if (pwaModalOverlay) {
+        pwaModalOverlay.addEventListener('click', (e) => {
+            if (e.target === pwaModalOverlay) hidePwaModal();
+        });
+    }
+
+    if (btnHeaderInstall) {
+        btnHeaderInstall.addEventListener('click', () => {
+            showPwaModal();
+        });
+    }
+
+    // Handle Chrome/Android beforeinstallprompt event
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+
+        if (btnHeaderInstall) btnHeaderInstall.style.display = 'inline-flex';
+
+        // Auto prompt on first visit if not dismissed and not running in standalone mode
+        if (!isStandalone && !localStorage.getItem('pwa_prompt_dismissed')) {
+            setTimeout(showPwaModal, 1200);
+        }
+    });
+
+    // Handle iOS Safari first visit auto prompt
+    if (isIOS && !isStandalone) {
+        if (btnHeaderInstall) btnHeaderInstall.style.display = 'inline-flex';
+
+        if (!localStorage.getItem('pwa_prompt_dismissed')) {
+            setTimeout(showPwaModal, 1200);
+        }
+    }
 });
+

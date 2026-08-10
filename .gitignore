@@ -5,3 +5,8 @@ temp/
 test_*.py
 test_*.js
 *_cookies.txt
+__pycache__/
+scratch/
+*.lnk
+*.url
+

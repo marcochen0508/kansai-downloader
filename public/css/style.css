@@ -838,3 +838,210 @@ body {
         flex-shrink: 0;
     }
 }
+
+/* Header Add to Desktop Button */
+.btn-header-install {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    color: #ffffff;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(244, 63, 94, 0.25);
+    transition: all 0.2s ease;
+    margin-left: 6px;
+}
+
+.btn-header-install:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(244, 63, 94, 0.35);
+}
+
+/* PWA Modal Overlay & Card */
+.pwa-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+}
+
+.pwa-modal-card {
+    background: #ffffff;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 440px;
+    padding: 24px 20px;
+    position: relative;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: slideUpPwa 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pwa-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 1.3rem;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.pwa-modal-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.pwa-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-right: 24px;
+}
+
+.pwa-app-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    object-fit: cover;
+}
+
+.pwa-header-text h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.35;
+}
+
+.pwa-header-text p {
+    font-size: 0.82rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.pwa-modal-body {
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 16px;
+    border: 1px solid #e2e8f0;
+}
+
+.pwa-android-tip {
+    font-size: 0.9rem;
+    color: #334155;
+    line-height: 1.55;
+}
+
+.pwa-step-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pwa-step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.88rem;
+    color: #334155;
+    line-height: 1.45;
+}
+
+.pwa-step-item .step-num {
+    background: #2563eb;
+    color: #ffffff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.pwa-modal-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-pwa-primary {
+    flex: 1;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #ffffff;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-pwa-primary:hover {
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-pwa-secondary {
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.92rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-pwa-secondary:hover {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+@keyframes slideUpPwa {
+    from {
+        opacity: 0;
+        transform: translateY(24px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+

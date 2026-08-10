@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>日本關西旅遊互助群 專用影音圖文下載系統</title>
+    <!-- 瀏覽器頁籤小圖示與桌面 App 圖示 -->
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="manifest" href="site.webmanifest">
+    <meta name="theme-color" content="#FF5E8E">
+    <meta name="apple-mobile-web-app-title" content="關西影音下載">
+    <meta name="application-name" content="關西影音下載">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,6 +36,9 @@
             <div class="brand-badge">
                 <span class="badge-icon">🌸</span>
                 <span>關西旅遊愛心互助群 ‧ 專屬福利工具</span>
+                <button type="button" class="btn-header-install" id="btnHeaderInstall" style="display: none;">
+                    <i class="fa-solid fa-mobile-screen-button"></i> 加到桌面
+                </button>
             </div>
             <h1 class="main-title">
                 日本關西旅遊互助群<br>
@@ -183,6 +196,55 @@
             <p>🌸 日本關西旅遊互助社群 ‧ 交流分享專用下載工具</p>
             <p class="footer-note">本工具僅供關西社友交流個人紀錄與旅遊資訊使用，請尊重創作者智慧財產權。</p>
         </footer>
+    </div>
+
+    <!-- PWA Add to Home Screen Prompt Modal -->
+    <div class="pwa-modal-overlay" id="pwaModalOverlay" style="display: none;">
+        <div class="pwa-modal-card">
+            <button type="button" class="pwa-modal-close" id="btnPwaClose" title="關閉">&times;</button>
+            <div class="pwa-modal-header">
+                <img src="favicon-32x32.png" alt="App Icon" class="pwa-app-icon">
+                <div class="pwa-header-text">
+                    <h3>將「關西影音下載」加到手機桌面</h3>
+                    <p>方便下次直接開啟，無須再次輸入網址！</p>
+                </div>
+            </div>
+
+            <!-- Dynamic Content: Android/Desktop vs iOS -->
+            <div class="pwa-modal-body">
+                <!-- iOS Instructions (shown when on iOS Safari) -->
+                <div id="pwaIosGuide" style="display: none;">
+                    <div class="pwa-step-list">
+                        <div class="pwa-step-item">
+                            <span class="step-num">1</span>
+                            <span>點擊 Safari 畫面的 <strong>「分享 <i class="fa-solid fa-arrow-up-from-bracket"></i>」</strong> 按鈕</span>
+                        </div>
+                        <div class="pwa-step-item">
+                            <span class="step-num">2</span>
+                            <span>向下滾動選單，點選 <strong>「加入主畫面 <i class="fa-regular fa-square-plus"></i>」</strong></span>
+                        </div>
+                        <div class="pwa-step-item">
+                            <span class="step-num">3</span>
+                            <span>點擊右上角的 <strong>「新增」</strong> 即可在桌面生成 App 圖示！</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Android/Desktop Direct Action -->
+                <div id="pwaAndroidGuide" style="display: none;">
+                    <p class="pwa-android-tip"><i class="fa-solid fa-sparkles"></i> 點擊下方按鈕，即可一鍵將 App 圖示新增至手機或電腦桌面：</p>
+                </div>
+            </div>
+
+            <div class="pwa-modal-actions">
+                <button type="button" class="btn-pwa-primary" id="btnPwaInstall">
+                    <i class="fa-solid fa-mobile-screen-button"></i> 立即新增到桌面
+                </button>
+                <button type="button" class="btn-pwa-secondary" id="btnPwaDismiss">
+                    稍後再說
+                </button>
+            </div>
+        </div>
     </div>
 
     <script src="js/app.js"></script>
