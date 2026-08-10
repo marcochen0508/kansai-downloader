@@ -19,6 +19,11 @@ if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }
 
+function getPythonCmd() {
+    if (process.env.PYTHON) return process.env.PYTHON;
+    return process.platform === 'win32' ? 'python' : 'python3';
+}
+
 // API: Parse social media URL via parser.py
 app.post('/api/parse', (req, res) => {
     const { url } = req.body;
@@ -26,10 +31,22 @@ app.post('/api/parse', (req, res) => {
         return res.status(400).json({ success: false, error: '請提供有效的網址' });
     }
 
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const pythonCmd = getPythonCmd();
     const pythonProcess = spawn(pythonCmd, ['parser.py', url]);
     let outputData = '';
     let errorData = '';
+    let hasResponded = false;
+
+    pythonProcess.on('error', (err) => {
+        if (!hasResponded) {
+            hasResponded = true;
+            console.error('Failed to start python process:', err);
+            return res.status(500).json({ 
+                success: false, 
+                error: `伺服器無法啟動 Python 解析器 (${err.message})` 
+            });
+        }
+    });
 
     pythonProcess.stdout.on('data', (data) => {
         outputData += data.toString('utf-8');
@@ -40,6 +57,9 @@ app.post('/api/parse', (req, res) => {
     });
 
     pythonProcess.on('close', (code) => {
+        if (hasResponded) return;
+        hasResponded = true;
+
         if (code !== 0) {
             console.error(`Parser process exited with code ${code}:`, errorData);
             return res.status(500).json({ 
@@ -263,9 +283,23 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
         args.push('--cookies', cookieFile);
     }
 
-    const ytdlp = spawn('python', ['-m', 'yt_dlp', ...args]);
+    const pythonCmd = getPythonCmd();
+    const ytdlp = spawn(pythonCmd, ['-m', 'yt_dlp', ...args]);
+    let ytdlpResponded = false;
+
+    ytdlp.on('error', (err) => {
+        if (!ytdlpResponded) {
+            ytdlpResponded = true;
+            console.error('ytdlp spawn error:', err);
+            if (fs.existsSync(tempFilePath)) fs.unlink(tempFilePath, () => {});
+            res.status(500).send('影片下載伺服器元件啟動失敗');
+        }
+    });
 
     ytdlp.on('close', (code) => {
+        if (ytdlpResponded) return;
+        ytdlpResponded = true;
+
         if (code === 0 && fs.existsSync(tempFilePath)) {
             const stat = fs.statSync(tempFilePath);
             setContentDisposition(res, safeFilename);

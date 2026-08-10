@@ -154,12 +154,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ url: targetUrl })
             });
 
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonErr) {
+                loadingState.style.display = 'none';
+                btnParse.disabled = false;
+                showError(`伺服器回應格式異常 (HTTP ${response.status})，請重新整理頁面再試。`);
+                return;
+            }
+
             loadingState.style.display = 'none';
             btnParse.disabled = false;
 
-            if (!data.success) {
-                showError(data.error || '解析失敗，請確認連結是否正確與公開。');
+            if (!response.ok || !data.success) {
+                showError(data.error || `解析失敗 (HTTP ${response.status})，請確認連結是否正確與公開。`);
                 return;
             }
 
@@ -167,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             loadingState.style.display = 'none';
             btnParse.disabled = false;
-            showError('後端連線異常，請確認伺服器是否正常執行中。');
+            showError(`後端連線異常 (${err.message || '無法連線伺服器'})，伺服器可能正在重啟，請稍候 10 秒後再試一次！`);
         }
     }
 
