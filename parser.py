@@ -787,11 +787,11 @@ def parse_url(target_url):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         **_get_cookie_opts(clean_target_url),
     }
-    # YouTube age-restricted / bot check bypass using android_vr and tv player clients
+    # YouTube age-restricted / bot check bypass using tv and android_vr primary player clients
     if is_yt_url:
         ydl_opts['extractor_args'] = {
             'youtube': {
-                'player_client': ['android_vr', 'web', 'mweb', 'ios', 'tv']
+                'player_client': ['tv', 'android_vr', 'android', 'ios', 'web_creator']
             }
         }
 
@@ -800,184 +800,201 @@ def parse_url(target_url):
         ydl_opts['ignore_no_formats_error'] = True
 
     try:
-        with YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(clean_target_url, download=False)
-            
-            if not info:
-                return {"success": False, "error": "無法解析該網址，請確認連結是否公開且正確。"}
+        info = None
+        try:
+            with YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(clean_target_url, download=False)
+        except Exception as e:
+            if is_yt_url:
+                # Fallback 1: Try standalone TV and Android VR player clients
+                try:
+                    opts_fb1 = dict(ydl_opts)
+                    opts_fb1['extractor_args'] = {'youtube': {'player_client': ['tv', 'android_vr']}}
+                    with YoutubeDL(opts_fb1) as ydl_fb1:
+                        info = ydl_fb1.extract_info(clean_target_url, download=False)
+                except Exception:
+                    # Fallback 2: Try iOS and Android embedded clients
+                    try:
+                        opts_fb2 = dict(ydl_opts)
+                        opts_fb2['extractor_args'] = {'youtube': {'player_client': ['ios', 'android', 'mweb']}}
+                        with YoutubeDL(opts_fb2) as ydl_fb2:
+                            info = ydl_fb2.extract_info(clean_target_url, download=False)
+                    except Exception:
+                        raise e
+            else:
+                raise e
 
-            raw_entries = []
-            if 'entries' in info and info['entries']:
-                raw_entries = [e for e in info['entries'] if e]
-                if len(raw_entries) > 0:
-                    info = raw_entries[0]
+        if not info:
+            return {"success": False, "error": "無法解析該網址，請確認連結是否公開且正確。"}
 
-            extractor = info.get('extractor_key', '') or info.get('extractor', '')
-            platform = detect_platform(clean_target_url, extractor)
+        raw_entries = []
+        if 'entries' in info and info['entries']:
+            raw_entries = [e for e in info['entries'] if e]
+            if len(raw_entries) > 0:
+                info = raw_entries[0]
 
-            raw_title = info.get('title') or ''
-            description = info.get('description') or info.get('caption') or ''
-            uploader = info.get('uploader') or info.get('uploader_id') or info.get('channel') or ''
-            thumbnail = info.get('thumbnail') or ''
-            webpage_url = info.get('webpage_url', clean_target_url)
+        extractor = info.get('extractor_key', '') or info.get('extractor', '')
+        platform = detect_platform(clean_target_url, extractor)
 
-            # Clean default TikTok video #... title to human readable Chinese title
-            raw_title = re.sub(r'TikTok video #\d+', 'TikTok 短影音', raw_title, flags=re.IGNORECASE)
-            
-            title = raw_title.strip()
-            if not title or title.lower().startswith('video by') or title.lower().startswith('reel by') or title.lower().startswith('post by') or title.lower().startswith('photo by'):
-                clean_desc = re.sub(r'[\r\n]+', ' ', description).strip()
-                clean_desc = re.sub(r'#\w+', '', clean_desc).strip()
-                if clean_desc:
-                    title = clean_desc[:40]
-                elif uploader:
-                    title = f"{uploader} 的社群動態"
-                else:
-                    title = "社群影音"
+        raw_title = info.get('title') or ''
+        description = info.get('description') or info.get('caption') or ''
+        uploader = info.get('uploader') or info.get('uploader_id') or info.get('channel') or ''
+        thumbnail = info.get('thumbnail') or ''
+        webpage_url = info.get('webpage_url', clean_target_url)
 
-            if uploader and uploader not in title and not title.startswith(uploader):
-                title = f"{uploader} - {title}"
+        # Clean default TikTok video #... title to human readable Chinese title
+        title = raw_title.strip()
+        if not title or title.lower().startswith('video by') or title.lower().startswith('reel by') or title.lower().startswith('post by') or title.lower().startswith('photo by'):
+            clean_desc = re.sub(r'[\r\n]+', ' ', description).strip()
+            clean_desc = re.sub(r'#\w+', '', clean_desc).strip()
+            if clean_desc:
+                title = clean_desc[:40]
+            elif uploader:
+                title = f"{uploader} 的社群動態"
+            else:
+                title = "社群影音"
 
-            raw_formats = []
-            video_options = []
-            audio_options = []
-            images = []
-            seen_image_urls = set()
+        if uploader and uploader not in title and not title.startswith(uploader):
+            title = f"{uploader} - {title}"
 
-            entries_list = raw_entries if raw_entries else [info]
+        raw_formats = []
+        video_options = []
+        audio_options = []
+        images = []
+        seen_image_urls = set()
 
+        entries_list = raw_entries if raw_entries else [info]
 
-            # Iterate over all entries in a carousel post (e.g. IG multi-photo / multi-video post)
-            for item_info in entries_list:
-                # 1. Extract best image/thumbnail for this entry
-                item_thumbs = item_info.get('thumbnails', [])
-                if item_thumbs:
-                    sorted_thumbs = sorted([t for t in item_thumbs if t.get('url')], key=lambda x: (x.get('width', 0) or 0)*(x.get('height', 0) or 0), reverse=True)
-                    if sorted_thumbs:
-                        img_url = sorted_thumbs[0]['url']
-                        img_base = img_url.split('?')[0]
-                        if img_base not in seen_image_urls:
-                            seen_image_urls.add(img_base)
-                            images.append(img_url)
+        # Iterate over all entries in a carousel post (e.g. IG multi-photo / multi-video post)
+        for item_info in entries_list:
+            # 1. Extract best image/thumbnail for this entry
+            item_thumbs = item_info.get('thumbnails', [])
+            if item_thumbs:
+                sorted_thumbs = sorted([t for t in item_thumbs if t.get('url')], key=lambda x: (x.get('width', 0) or 0)*(x.get('height', 0) or 0), reverse=True)
+                if sorted_thumbs:
+                    img_url = sorted_thumbs[0]['url']
+                    img_base = img_url.split('?')[0]
+                    if img_base not in seen_image_urls:
+                        seen_image_urls.add(img_base)
+                        images.append(img_url)
 
-                # 2. Collect formats for this entry
-                item_formats = item_info.get('formats', [])
-                if item_formats:
-                    raw_formats.extend(item_formats)
+            # 2. Collect formats for this entry
+            item_formats = item_info.get('formats', [])
+            if item_formats:
+                raw_formats.extend(item_formats)
 
-            seen_res = set()
-            is_youtube = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
-            is_instagram = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
-            is_facebook = 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url
+        seen_res = set()
+        is_youtube = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
+        is_instagram = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
+        is_facebook = 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url
 
-            for f in raw_formats:
-                f_url = f.get('url')
-                if not f_url:
-                    continue
+        for f in raw_formats:
+            f_url = f.get('url')
+            if not f_url:
+                continue
 
-                vcodec = f.get('vcodec', 'none')
-                acodec = f.get('acodec', 'none')
-                ext = f.get('ext', 'mp4')
-                height = f.get('height') or 0
-                format_note = f.get('format_note', '') or ''
-                filesize = f.get('filesize') or f.get('filesize_approx') or 0
-                format_id = f.get('format_id') or ''
+            vcodec = f.get('vcodec', 'none')
+            acodec = f.get('acodec', 'none')
+            ext = f.get('ext', 'mp4')
+            height = f.get('height') or 0
+            format_note = f.get('format_note', '') or ''
+            filesize = f.get('filesize') or f.get('filesize_approx') or 0
+            format_id = f.get('format_id') or ''
 
-                size_str = ""
-                if filesize > 0:
-                    size_mb = filesize / (1024 * 1024)
-                    size_str = f"{size_mb:.1f} MB"
+            size_str = ""
+            if filesize > 0:
+                size_mb = filesize / (1024 * 1024)
+                size_str = f"{size_mb:.1f} MB"
 
-                if vcodec != 'none':
-                    res_label = f"{height}p" if height else (format_note or "預設畫質")
-                    if height >= 2160:
-                        res_label = "4K 超高畫質 (2160p)"
-                    elif height >= 1440:
-                        res_label = "2K 高畫質 (1440p)"
-                    elif height >= 1080:
-                        res_label = "1080p Full HD"
-                    elif height >= 720:
-                        res_label = "720p HD"
-                    elif height >= 480:
-                        res_label = "480p 標清"
-                    elif height > 0:
-                        res_label = f"{height}p"
+            if vcodec != 'none':
+                res_label = f"{height}p" if height else (format_note or "預設畫質")
+                if height >= 2160:
+                    res_label = "4K 超高畫質 (2160p)"
+                elif height >= 1440:
+                    res_label = "2K 高畫質 (1440p)"
+                elif height >= 1080:
+                    res_label = "1080p Full HD"
+                elif height >= 720:
+                    res_label = "720p HD"
+                elif height >= 480:
+                    res_label = "480p 標清"
+                elif height > 0:
+                    res_label = f"{height}p"
 
-                    effective_format_id = format_id
-                    # YouTube: tag progressive (combined) formats as 'direct' so server streams without merge
-                    if is_youtube and acodec != 'none' and vcodec != 'none':
-                        effective_format_id = 'direct'
-                        res_label += ' (直接下載)'
-                    # Instagram / Facebook progressive (has audio): mark as 'direct' for fast CDN streaming
-                    elif (is_instagram or is_facebook) and acodec != 'none' and vcodec != 'none':
-                        effective_format_id = 'direct'
-                    # Instagram / Facebook DASH video-only: keep format_id as-is, server will use yt-dlp to merge
-                    elif (is_instagram or is_facebook) and acodec == 'none':
-                        res_label += ' (需合併音訊)'
+                effective_format_id = format_id
+                # YouTube: tag progressive (combined) formats as 'direct' so server streams without merge
+                if is_youtube and acodec != 'none' and vcodec != 'none':
+                    effective_format_id = 'direct'
+                    res_label += ' (直接下載)'
+                # Instagram / Facebook progressive (has audio): mark as 'direct' for fast CDN streaming
+                elif (is_instagram or is_facebook) and acodec != 'none' and vcodec != 'none':
+                    effective_format_id = 'direct'
+                # Instagram / Facebook DASH video-only: keep format_id as-is, server will use yt-dlp to merge
+                elif (is_instagram or is_facebook) and acodec == 'none':
+                    res_label += ' (需合併音訊)'
 
-                    res_key = f"{height}"
-                    if res_key not in seen_res:
-                        seen_res.add(res_key)
-                        video_options.append({
-                            'quality': res_label,
-                            'height': height,
-                            'ext': ext,
-                            'has_audio': acodec != 'none',
-                            'size': size_str,
-                            'url': f_url,
-                            'format_id': effective_format_id,
-                            'webpage_url': webpage_url
-                        })
-
-
-                elif acodec != 'none' and vcodec == 'none':
-                    abr = f.get('abr') or 128
-                    audio_options.append({
-                        'quality': f"純音檔 ({int(abr)} kbps)",
+                res_key = f"{height}"
+                if res_key not in seen_res:
+                    seen_res.add(res_key)
+                    video_options.append({
+                        'quality': res_label,
+                        'height': height,
                         'ext': ext,
+                        'has_audio': acodec != 'none',
                         'size': size_str,
                         'url': f_url,
-                        'format_id': format_id,
+                        'format_id': effective_format_id,
                         'webpage_url': webpage_url
                     })
 
-            video_options = sorted(video_options, key=lambda x: x['height'], reverse=True)
-
-            if not video_options and info.get('url'):
-                video_options.append({
-                    'quality': '最佳高畫質',
-                    'height': 720,
-                    'ext': info.get('ext', 'mp4'),
-                    'has_audio': True,
-                    'size': '',
-                    'url': info.get('url'),
-                    'format_id': 'best',
-                    'webpage_url': webpage_url
-                })
-
-            if video_options and not audio_options:
+            elif acodec != 'none' and vcodec == 'none':
+                abr = f.get('abr') or 128
                 audio_options.append({
-                    'quality': '提取原聲 (MP3/M4A)',
-                    'ext': 'mp3',
-                    'size': '',
-                    'url': video_options[0]['url'],
-                    'format_id': 'bestaudio',
+                    'quality': f"純音檔 ({int(abr)} kbps)",
+                    'ext': ext,
+                    'size': size_str,
+                    'url': f_url,
+                    'format_id': format_id,
                     'webpage_url': webpage_url
                 })
 
-            result = {
-                "success": True,
-                "platform": platform,
-                "title": title,
-                "description": description,
-                "uploader": uploader or "社群創作者",
-                "thumbnail": thumbnail,
-                "videos": video_options[:6],
-                "audios": audio_options[:3],
-                "images": images,
-                "webpage_url": webpage_url
-            }
-            return result
+        video_options = sorted(video_options, key=lambda x: x['height'], reverse=True)
+
+        if not video_options and info.get('url'):
+            video_options.append({
+                'quality': '最佳高畫質',
+                'height': 720,
+                'ext': info.get('ext', 'mp4'),
+                'has_audio': True,
+                'size': '',
+                'url': info.get('url'),
+                'format_id': 'best',
+                'webpage_url': webpage_url
+            })
+
+        if video_options and not audio_options:
+            audio_options.append({
+                'quality': '提取原聲 (MP3/M4A)',
+                'ext': 'mp3',
+                'size': '',
+                'url': video_options[0]['url'],
+                'format_id': 'bestaudio',
+                'webpage_url': webpage_url
+            })
+
+        result = {
+            "success": True,
+            "platform": platform,
+            "title": title,
+            "description": description,
+            "uploader": uploader or "社群創作者",
+            "thumbnail": thumbnail,
+            "videos": video_options[:6],
+            "audios": audio_options[:3],
+            "images": images,
+            "webpage_url": webpage_url
+        }
+        return result
 
     except Exception as e:
         err_msg = str(e)
