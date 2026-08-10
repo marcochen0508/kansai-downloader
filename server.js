@@ -60,17 +60,27 @@ app.post('/api/parse', (req, res) => {
         if (hasResponded) return;
         hasResponded = true;
 
-        // Safely extract the last JSON object from python stdout (bypasses any yt-dlp error/warning log prefixes)
-        const jsonStart = outputData.lastIndexOf('{');
-        const jsonEnd = outputData.lastIndexOf('}');
-        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-            try {
-                const jsonStr = outputData.substring(jsonStart, jsonEnd + 1);
-                const result = JSON.parse(jsonStr);
-                return res.json(result);
-            } catch (e) {
-                console.error('Failed to parse extracted JSON substring:', e);
+        let result = null;
+
+        // 1. Try direct JSON parse
+        try {
+            result = JSON.parse(outputData.trim());
+        } catch (e1) {
+            // 2. Fallback: Extract outer JSON object from first '{' to last '}' if log output precedes JSON
+            const jsonStart = outputData.indexOf('{');
+            const jsonEnd = outputData.lastIndexOf('}');
+            if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+                try {
+                    const jsonStr = outputData.substring(jsonStart, jsonEnd + 1);
+                    result = JSON.parse(jsonStr);
+                } catch (e2) {
+                    console.error('Failed to parse extracted JSON substring:', e2);
+                }
             }
+        }
+
+        if (result) {
+            return res.json(result);
         }
 
         if (code !== 0) {
