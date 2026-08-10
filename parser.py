@@ -776,6 +776,8 @@ def parse_url(target_url):
             return red_res
 
     is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
+    is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
+
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -785,6 +787,14 @@ def parse_url(target_url):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         **_get_cookie_opts(clean_target_url),
     }
+    # YouTube age-restricted / bot check bypass using android_vr and tv player clients
+    if is_yt_url:
+        ydl_opts['extractor_args'] = {
+            'youtube': {
+                'player_client': ['android_vr', 'web', 'mweb', 'ios', 'tv']
+            }
+        }
+
     # Instagram photo posts: don't fail on "No video formats found", we'll extract images instead
     if is_ig_url:
         ydl_opts['ignore_no_formats_error'] = True

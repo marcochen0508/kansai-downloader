@@ -287,7 +287,9 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
         args.push('--ffmpeg-location', ffmpegPath);
     }
 
-    if (targetUrl.includes('bilibili')) {
+    if (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be')) {
+        args.push('--extractor-args', 'youtube:player_client=android_vr,web,mweb,ios,tv');
+    } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
         args.push('--add-header', 'Referer:https://www.instagram.com/');
