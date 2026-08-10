@@ -787,11 +787,11 @@ def parse_url(target_url):
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         **_get_cookie_opts(clean_target_url),
     }
-    # YouTube age-restricted / bot check bypass using tv and android_vr primary player clients
+    # YouTube age-restricted & DRM bypass using android_vr and ios player clients
     if is_yt_url:
         ydl_opts['extractor_args'] = {
             'youtube': {
-                'player_client': ['tv', 'android_vr', 'android', 'ios', 'web_creator']
+                'player_client': ['android_vr', 'ios', 'android', 'web']
             }
         }
 
@@ -806,17 +806,17 @@ def parse_url(target_url):
                 info = ydl.extract_info(clean_target_url, download=False)
         except Exception as e:
             if is_yt_url:
-                # Fallback 1: Try standalone TV and Android VR player clients
+                # Fallback 1: Try android_vr and android player clients
                 try:
                     opts_fb1 = dict(ydl_opts)
-                    opts_fb1['extractor_args'] = {'youtube': {'player_client': ['tv', 'android_vr']}}
+                    opts_fb1['extractor_args'] = {'youtube': {'player_client': ['android_vr', 'android']}}
                     with YoutubeDL(opts_fb1) as ydl_fb1:
                         info = ydl_fb1.extract_info(clean_target_url, download=False)
                 except Exception:
-                    # Fallback 2: Try iOS and Android embedded clients
+                    # Fallback 2: Try web_embedded and ios clients
                     try:
                         opts_fb2 = dict(ydl_opts)
-                        opts_fb2['extractor_args'] = {'youtube': {'player_client': ['ios', 'android', 'mweb']}}
+                        opts_fb2['extractor_args'] = {'youtube': {'player_client': ['web_embedded', 'ios', 'android']}}
                         with YoutubeDL(opts_fb2) as ydl_fb2:
                             info = ydl_fb2.extract_info(clean_target_url, download=False)
                     except Exception:
