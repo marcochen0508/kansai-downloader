@@ -784,6 +784,8 @@ def parse_url(target_url):
         'skip_download': True,
         'allow_unplayable_formats': True,
         'nocheckcertificate': True,
+        'remote_components': ['ejs:github'],
+        'js_runtimes': {'node': {}},
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         **_get_cookie_opts(clean_target_url),
     }

@@ -288,7 +288,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
     }
 
     if (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be')) {
-        args.push('--extractor-args', 'youtube:player_client=android_vr,ios,android,web');
+        args.push('--remote-components', 'ejs:github', '--extractor-args', 'youtube:player_client=android_vr,ios,android,web');
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
