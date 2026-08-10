@@ -1000,4 +1000,7 @@ if __name__ == '__main__':
 
     target_url = sys.argv[1]
     res = parse_url(target_url)
-    print(json.dumps(res, ensure_ascii=False))
+    json_output = json.dumps(res, ensure_ascii=False)
+    # Clean unpaired surrogates to prevent URI malformed in browser JS
+    clean_json = json_output.encode('utf-8', 'surrogateescape').decode('utf-8', 'ignore')
+    print(clean_json)

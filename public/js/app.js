@@ -47,9 +47,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const toast = document.getElementById('toast');
 
+    // Safe URI Component Encoder (prevents URIError: URI malformed on invalid/unpaired Unicode surrogates)
+    function safeEncode(str) {
+        if (!str) return '';
+        try {
+            const cleanStr = String(str).replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/g, '');
+            return encodeURIComponent(cleanStr);
+        } catch (e) {
+            return encodeURIComponent(String(str).replace(/[^\x00-\x7F]/g, ''));
+        }
+    }
+
     // Clean filename helper for downloading readable files
     function makeCleanFilename(title, qualityStr, ext) {
         let clean = (title || '社群影音')
+            .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/g, '')
             .replace(/TikTok video #\d+/gi, 'TikTok短影音')
             .replace(/video #\d+/gi, '短影音')
             .replace(/video by \w+/gi, '')
@@ -73,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Proxy image helper to bypass referrer/hotlink protection
     function getProxyImageUrl(rawUrl) {
         if (!rawUrl) return '';
-        return `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
+        return `/api/proxy-image?url=${safeEncode(rawUrl)}`;
     }
 
     // Real-time Platform Detector
@@ -147,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingState.style.display = 'flex';
         btnParse.disabled = true;
 
+        let data;
         try {
             const response = await fetch('/api/parse', {
                 method: 'POST',
@@ -154,7 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ url: targetUrl })
             });
 
-            let data;
             try {
                 data = await response.json();
             } catch (jsonErr) {
@@ -171,12 +183,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 showError(data.error || `解析失敗 (HTTP ${response.status})，請確認連結是否正確與公開。`);
                 return;
             }
-
-            renderResult(data);
         } catch (err) {
             loadingState.style.display = 'none';
             btnParse.disabled = false;
             showError(`後端連線異常 (${err.message || '無法連線伺服器'})，伺服器可能正在重啟，請稍候 10 秒後再試一次！`);
+            return;
+        }
+
+        // Safely render result outside fetch error catch block
+        try {
+            renderResult(data);
+        } catch (renderErr) {
+            console.error('Render error:', renderErr);
+            showError(`頁面顯示處理異常: ${renderErr.message}`);
         }
     }
 
@@ -222,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = 'download-item media-preview-item';
                 
                 const targetFilename = makeCleanFilename(data.title, vid.quality, vid.ext);
-                const dlProxyUrl = `/api/download?url=${encodeURIComponent(vid.url)}&filename=${encodeURIComponent(targetFilename)}&type=video&webpageUrl=${encodeURIComponent(vid.webpage_url || '')}&formatId=${encodeURIComponent(vid.format_id || '')}`;
+                const dlProxyUrl = `/api/download?url=${safeEncode(vid.url)}&filename=${safeEncode(targetFilename)}&type=video&webpageUrl=${safeEncode(vid.webpage_url || '')}&formatId=${safeEncode(vid.format_id || '')}`;
 
                 const itemVidThumb = vid.thumbnail || data.thumbnail || '';
                 const proxiedVidThumb = getProxyImageUrl(itemVidThumb);
@@ -253,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = 'download-item media-preview-item';
                 
                 const targetFilename = makeCleanFilename(data.title, aud.quality, aud.ext);
-                const dlProxyUrl = `/api/download?url=${encodeURIComponent(aud.url)}&filename=${encodeURIComponent(targetFilename)}&type=audio&webpageUrl=${encodeURIComponent(aud.webpage_url || '')}&formatId=${encodeURIComponent(aud.format_id || '')}`;
+                const dlProxyUrl = `/api/download?url=${safeEncode(aud.url)}&filename=${safeEncode(targetFilename)}&type=audio&webpageUrl=${safeEncode(aud.webpage_url || '')}&formatId=${safeEncode(aud.format_id || '')}`;
 
                 item.innerHTML = `
                     <div class="item-media-left">
@@ -298,7 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="item-name">高清 JPEG 圖片</span>
                         </div>
                     </div>
-                    <a href="/api/download?url=${encodeURIComponent(imgUrl)}&filename=${encodeURIComponent(cleanName)}&type=image" download="${cleanName}" class="btn-dl" style="background-color: #ec4899;">
+                    <a href="/api/download?url=${safeEncode(imgUrl)}&filename=${safeEncode(cleanName)}&type=image" download="${cleanName}" class="btn-dl" style="background-color: #ec4899;">
                         <i class="fa-solid fa-file-image"></i> 下載照片
                     </a>
                 `;
