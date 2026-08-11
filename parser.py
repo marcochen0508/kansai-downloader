@@ -981,8 +981,7 @@ def parse_url(target_url):
 
     if is_yt_url:
         yt_direct_res = scrape_youtube_direct(clean_target_url)
-        if yt_direct_res.get('success'):
-            return yt_direct_res
+        return yt_direct_res
 
     if is_yt_url:
         ydl_opts = {
