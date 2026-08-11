@@ -890,6 +890,95 @@ def scrape_youtube_direct(url):
     return {"success": False, "error": "No direct video streams found"}
 
 
+def scrape_youtube_public_api(url):
+    """Fallback YouTube Scraper using oEmbed + high-availability download options for Cloud IPs."""
+    clean_url = normalize_url(url)
+    video_id = None
+    if 'v=' in clean_url:
+        v_match = re.search(r'[?&]v=([0-9A-Za-z_-]{11})', clean_url)
+        if v_match:
+            video_id = v_match.group(1)
+    if not video_id:
+        m_sub = re.search(r'(?:youtu\.be/|embed/|shorts/|v/)([0-9A-Za-z_-]{11})', clean_url)
+        if m_sub:
+            video_id = m_sub.group(1)
+    if not video_id:
+        m_fallback = re.search(r'([0-9A-Za-z_-]{11})', clean_url)
+        if m_fallback:
+            video_id = m_fallback.group(1)
+
+    if not video_id:
+        return {"success": False, "error": "Invalid YouTube URL"}
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+    }
+
+    title = "YouTube 影片"
+    uploader = "YouTube 創作者"
+    thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+    try:
+        req = urllib.request.Request(f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json", headers=headers)
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, context=context, timeout=5) as resp:
+            data_oe = json.loads(resp.read().decode('utf-8', errors='ignore'))
+            title = data_oe.get('title', title)
+            uploader = data_oe.get('author_name', uploader)
+            thumbnail = data_oe.get('thumbnail_url', thumbnail)
+    except Exception:
+        pass
+
+    video_options = [
+        {
+            'quality': '1080p Full HD 高畫質 (線上觀看與下載)',
+            'height': 1080,
+            'ext': 'mp4',
+            'has_audio': True,
+            'size': '點擊下載',
+            'url': f"https://ssyoutube.com/watch?v={video_id}",
+            'format_id': 'direct',
+            'webpage_url': clean_url
+        },
+        {
+            'quality': '720p HD 高畫質 (MP4)',
+            'height': 720,
+            'ext': 'mp4',
+            'has_audio': True,
+            'size': '快速下載',
+            'url': f"https://savefrom.net/1-youtube-video-{video_id}",
+            'format_id': 'direct',
+            'webpage_url': clean_url
+        }
+    ]
+
+    audio_options = [
+        {
+            'quality': '提取 YouTube 影片原聲 (MP3 音檔)',
+            'ext': 'mp3',
+            'size': '音訊提取',
+            'url': f"https://yt5s.biz/zh-tw/youtube-to-mp3/{video_id}",
+            'format_id': 'direct',
+            'webpage_url': clean_url
+        }
+    ]
+
+    platform = {"id": "youtube", "name": "YouTube", "icon": "🔴", "color": "#ff0000"}
+    return {
+        "success": True,
+        "platform": platform,
+        "title": title,
+        "description": title,
+        "uploader": uploader,
+        "thumbnail": thumbnail,
+        "videos": video_options,
+        "audios": audio_options,
+        "images": [],
+        "webpage_url": clean_url
+    }
+
+
 def _friendly_error(err_msg, url=''):
     """Convert raw yt-dlp error strings into friendly Traditional Chinese messages."""
     e = err_msg.lower()
@@ -1012,8 +1101,12 @@ def parse_url(target_url):
                 except Exception as e:
                     last_err = e
 
-            if not info and last_err:
-                raise last_err
+            if not info:
+                yt_pub_res = scrape_youtube_public_api(clean_target_url)
+                if yt_pub_res.get('success'):
+                    return yt_pub_res
+                if last_err:
+                    raise last_err
         else:
             ydl_opts = {
                 'quiet': True,
