@@ -892,7 +892,7 @@ def parse_url(target_url):
                 info = ydl.extract_info(clean_target_url, download=False)
         except Exception as e:
             if is_yt_url:
-                # Fallback: Try android,web_embedded player clients
+                # Fallback 1: Try android,web_embedded player clients
                 try:
                     yt_fb_opts = {
                         'quiet': True,
@@ -908,7 +908,12 @@ def parse_url(target_url):
                         with YoutubeDL({'quiet': True, 'skip_download': True, 'nocheckcertificate': True, 'extractor_args': {'youtube': {'player_client': ['ios', 'android']}}}) as ydl_fb2:
                             info = ydl_fb2.extract_info(clean_target_url, download=False)
                     except Exception:
-                        raise e
+                        # Fallback 3: Try tv,mweb player clients
+                        try:
+                            with YoutubeDL({'quiet': True, 'skip_download': True, 'nocheckcertificate': True, 'extractor_args': {'youtube': {'player_client': ['tv', 'mweb']}}}) as ydl_fb3:
+                                info = ydl_fb3.extract_info(clean_target_url, download=False)
+                        except Exception:
+                            raise e
             elif 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url:
                 fb_res = scrape_facebook_fallback(clean_target_url)
                 if fb_res.get('success'):
