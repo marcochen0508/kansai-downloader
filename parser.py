@@ -798,17 +798,31 @@ def scrape_youtube_direct(url):
         'Cookie': 'SOCS=CAESEwgDEgk2OTg3OTY2MzIaAmVuIAEaBgiA_a-1bg; CONSENT=YES+cb.20230531-04-p0.en+FX+111;'
     }
 
+    html_text = ""
+    # Try curl_cffi first for TLS fingerprint impersonation
     try:
-        req = urllib.request.Request(target_url, headers=headers)
-        context = ssl._create_unverified_context()
-        with urllib.request.urlopen(req, context=context, timeout=10) as resp:
-            html_text = resp.read().decode('utf-8', errors='ignore')
+        from curl_cffi import requests as c_req
+        r = c_req.get(target_url, headers=headers, impersonate="safari15_5", timeout=10)
+        if r.status_code == 200:
+            html_text = r.text
+    except Exception:
+        pass
+
+    if not html_text:
+        try:
+            req = urllib.request.Request(target_url, headers=headers)
+            context = ssl._create_unverified_context()
+            with urllib.request.urlopen(req, context=context, timeout=10) as resp:
+                html_text = resp.read().decode('utf-8', errors='ignore')
+        except Exception as e:
+            return {"success": False, "error": str(e)}
             
-        match = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});</script>', html_text) or re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});', html_text)
-        
-        if not match:
-            return {"success": False, "error": "Could not find player response"}
-        
+    match = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});</script>', html_text) or re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});', html_text)
+    
+    if not match:
+        return {"success": False, "error": "Could not find player response"}
+    
+    try:
         data = json.loads(match.group(1))
         status = data.get('playabilityStatus', {}).get('status')
         if status != 'OK':
