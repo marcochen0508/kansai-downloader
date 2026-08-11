@@ -773,17 +773,22 @@ def scrape_facebook_fallback(url):
 def scrape_youtube_direct(url):
     """Direct mobile player_response scraper for YouTube URLs to bypass Cloud IP blocks."""
     clean_url = normalize_url(url)
-    m = re.search(r'(?:v=|\/([0-9A-Za-z_-]{11}))', clean_url)
-    if not m:
-        return {"success": False, "error": "Invalid YouTube URL"}
-    
     video_id = None
     if 'v=' in clean_url:
-        v_match = re.search(r'v=([0-9A-Za-z_-]{11})', clean_url)
+        v_match = re.search(r'[?&]v=([0-9A-Za-z_-]{11})', clean_url)
         if v_match:
             video_id = v_match.group(1)
     if not video_id:
-        video_id = m.group(1) if m.group(1) else m.group(0)
+        m = re.search(r'(?:youtu\.be/|embed/|shorts/|v/)([0-9A-Za-z_-]{11})', clean_url)
+        if m:
+            video_id = m.group(1)
+    if not video_id:
+        m_fallback = re.search(r'([0-9A-Za-z_-]{11})', clean_url)
+        if m_fallback:
+            video_id = m_fallback.group(1)
+
+    if not video_id:
+        return {"success": False, "error": "Invalid YouTube URL"}
 
     target_url = f"https://m.youtube.com/watch?v={video_id}"
     
