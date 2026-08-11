@@ -802,7 +802,7 @@ def scrape_youtube_direct(url):
     # Try curl_cffi first for TLS fingerprint impersonation
     try:
         from curl_cffi import requests as c_req
-        r = c_req.get(target_url, headers=headers, impersonate="safari15_5", timeout=10)
+        r = c_req.get(target_url, headers=headers, impersonate="chrome120", allow_redirects=False, timeout=10)
         if r.status_code == 200:
             html_text = r.text
     except Exception:
