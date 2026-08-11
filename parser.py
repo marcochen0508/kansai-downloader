@@ -766,7 +766,104 @@ def scrape_facebook_fallback(url):
     except Exception as e:
         pass
 
-    return {"success": False, "error": "Facebook 備用解析失敗"}
+def scrape_youtube_direct(url):
+    """Direct mobile player_response scraper for YouTube URLs to bypass Cloud IP blocks."""
+    clean_url = normalize_url(url)
+    m = re.search(r'(?:v=|\/([0-9A-Za-z_-]{11}))', clean_url)
+    if not m:
+        return {"success": False, "error": "Invalid YouTube URL"}
+    
+    video_id = None
+    if 'v=' in clean_url:
+        v_match = re.search(r'v=([0-9A-Za-z_-]{11})', clean_url)
+        if v_match:
+            video_id = v_match.group(1)
+    if not video_id:
+        video_id = m.group(1) if m.group(1) else m.group(0)
+
+    target_url = f"https://m.youtube.com/watch?v={video_id}"
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1',
+        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+    }
+
+    try:
+        req = urllib.request.Request(target_url, headers=headers)
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, context=context, timeout=10) as resp:
+            html_text = resp.read().decode('utf-8', errors='ignore')
+            
+        match = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});</script>', html_text) or re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});', html_text)
+        
+        if not match:
+            return {"success": False, "error": "Could not find player response"}
+        
+        data = json.loads(match.group(1))
+        status = data.get('playabilityStatus', {}).get('status')
+        if status != 'OK':
+            reason = data.get('playabilityStatus', {}).get('reason', 'Video unavailable')
+            return {"success": False, "error": f"YouTube status: {status} ({reason})"}
+
+        details = data.get('videoDetails', {})
+        title = details.get('title', 'YouTube 影片')
+        uploader = details.get('author', 'YouTube 創作者')
+        thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+        if details.get('thumbnail', {}).get('thumbnails'):
+            thumbnail = details['thumbnail']['thumbnails'][-1].get('url', thumbnail)
+
+        streamingData = data.get('streamingData', {})
+        formats = streamingData.get('formats', []) + streamingData.get('adaptiveFormats', [])
+        
+        video_options = []
+        audio_options = []
+
+        for f in formats:
+            u = f.get('url')
+            mime = f.get('mimeType', '')
+            q = f.get('qualityLabel') or f.get('quality') or '720p'
+            
+            if u:
+                if 'video/mp4' in mime:
+                    video_options.append({
+                        'quality': f"{q} 高畫質 (MP4)",
+                        'height': 1080 if '1080' in q else (720 if '720' in q else 480),
+                        'ext': 'mp4',
+                        'has_audio': 'audio' in mime or f.get('audioQuality') is not None,
+                        'size': f.get('contentLength', ''),
+                        'url': u,
+                        'format_id': 'direct',
+                        'webpage_url': clean_url
+                    })
+                elif 'audio/mp4' in mime or 'audio/webm' in mime:
+                    if len(audio_options) < 2:
+                        audio_options.append({
+                            'quality': '提取 YouTube 影片原聲 (MP3/M4A)',
+                            'ext': 'mp3',
+                            'size': f.get('contentLength', ''),
+                            'url': u,
+                            'format_id': 'direct',
+                            'webpage_url': clean_url
+                        })
+
+        if video_options or audio_options:
+            platform = {"id": "youtube", "name": "YouTube", "icon": "🔴", "color": "#ff0000"}
+            return {
+                "success": True,
+                "platform": platform,
+                "title": title,
+                "description": title,
+                "uploader": uploader,
+                "thumbnail": thumbnail,
+                "videos": video_options,
+                "audios": audio_options,
+                "images": [],
+                "webpage_url": clean_url
+            }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+    return {"success": False, "error": "No direct video streams found"}
 
 
 def _friendly_error(err_msg, url=''):
@@ -857,6 +954,11 @@ def parse_url(target_url):
 
     is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
     is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
+
+    if is_yt_url:
+        yt_direct_res = scrape_youtube_direct(clean_target_url)
+        if yt_direct_res.get('success'):
+            return yt_direct_res
 
     if is_yt_url:
         ydl_opts = {
