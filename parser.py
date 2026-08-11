@@ -6,6 +6,8 @@ import urllib.request
 import urllib.parse
 import ssl
 import base64
+import subprocess
+
 
 import os
 import glob
@@ -698,6 +700,75 @@ def _scrape_ig_photo_fallback(url):
         return {"success": False, "error": f"Instagram 照片解析失敗: {str(e)}"}
 
 
+def scrape_facebook_fallback(url):
+    """Fallback scraper for Facebook Reels/Videos using node script wrapper."""
+    clean_url = normalize_url(url)
+    scraper_path = os.path.join(_SCRIPT_DIR, 'fb_scraper.js')
+    
+    if not os.path.isfile(scraper_path):
+        return {"success": False, "error": "fb_scraper.js not found"}
+
+    try:
+        res = subprocess.run(
+            ['node', scraper_path, clean_url],
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            timeout=15
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            for line in res.stdout.strip().splitlines():
+                if line.startswith('{') and line.endswith('}'):
+                    data = json.loads(line)
+                    if data.get('success') and data.get('videos'):
+                        platform = {"id": "facebook", "name": "Facebook", "icon": "🔵", "color": "#1877f2"}
+                        video_options = []
+                        audio_options = []
+
+                        for i, v in enumerate(data['videos']):
+                            v_url = v['url']
+                            q = v.get('quality') or '高畫質影片 (MP4)'
+                            video_options.append({
+                                'quality': q,
+                                'height': 1080 if '1080' in q or 'HD' in q else 720,
+                                'ext': 'mp4',
+                                'has_audio': True,
+                                'size': '',
+                                'url': v_url,
+                                'format_id': 'direct',
+                                'webpage_url': clean_url
+                            })
+                            audio_options.append({
+                                'quality': '提取 Facebook 影片原聲 (MP3)',
+                                'ext': 'mp3',
+                                'size': '',
+                                'url': v_url,
+                                'format_id': 'bestaudio',
+                                'webpage_url': clean_url
+                            })
+
+                        title = data.get('title') or 'Facebook 短影音 / Reel'
+                        if title.lower() == 'video facebook':
+                            title = 'Facebook 短影音 / Reel'
+
+                        return {
+                            "success": True,
+                            "platform": platform,
+                            "title": title,
+                            "description": title,
+                            "uploader": "Facebook 創作者",
+                            "thumbnail": data.get('thumbnail', ''),
+                            "videos": video_options,
+                            "audios": audio_options,
+                            "images": [],
+                            "webpage_url": clean_url
+                        }
+    except Exception as e:
+        pass
+
+    return {"success": False, "error": "Facebook 備用解析失敗"}
+
+
 def _friendly_error(err_msg, url=''):
     """Convert raw yt-dlp error strings into friendly Traditional Chinese messages."""
     e = err_msg.lower()
@@ -775,6 +846,11 @@ def parse_url(target_url):
         if red_res.get('success'):
             return red_res
 
+    if 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url:
+        fb_res = scrape_facebook_fallback(clean_target_url)
+        if fb_res.get('success'):
+            return fb_res
+
     is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
     is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
 
@@ -806,6 +882,11 @@ def parse_url(target_url):
                         info = ydl_fb.extract_info(clean_target_url, download=False)
                 except Exception:
                     raise e
+            elif 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url:
+                fb_res = scrape_facebook_fallback(clean_target_url)
+                if fb_res.get('success'):
+                    return fb_res
+                raise e
             else:
                 raise e
 
