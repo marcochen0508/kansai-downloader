@@ -146,7 +146,7 @@ app.get('/api/download', async (req, res) => {
     }
 
     // For YouTube, Bilibili, or Instagram — force yt-dlp with H.264/AAC codec selection
-    downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId, type);
+    downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId, type, req);
 });
 
 // Proxy Image API to bypass Referer / Hotlink protection
@@ -267,10 +267,9 @@ try {
     console.log('ffmpeg-static not found, using default system ffmpeg');
 }
 
-function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', type = 'video') {
+function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', type = 'video', req = null) {
     const targetUrl = webpageUrl || url;
     const isAudio = type === 'audio' || formatId === 'bestaudio';
-    const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.${isAudio ? 'mp3' : 'mp4'}`);
 
     const isYouTubeUrl = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be') || url.includes('googlevideo.com');
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
@@ -280,22 +279,18 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
-        formatStr = `${formatId}+bestaudio/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
-    } else if (isInstagramUrl || isFacebookUrl) {
+        formatStr = `${formatId}+bestaudio/best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best`;
+    } else if (isInstagramUrl || isFacebookUrl || isYouTubeUrl) {
         formatStr = 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best';
     } else {
-        formatStr = 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
+        formatStr = 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/best';
     }
 
     const args = [
         targetUrl,
         '-f', formatStr,
-        '-o', tempFilePath
+        '-o', '-'  // Stream directly to stdout so headers and chunks start sending immediately (prevents Render 30s timeout)
     ];
-
-    if (!isAudio) {
-        args.push('--merge-output-format', 'mp4');
-    }
 
     if (ffmpegPath) {
         args.push('--ffmpeg-location', ffmpegPath);
@@ -320,43 +315,30 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         args.push('--cookies', cookieFile);
     }
 
+    // Immediately send headers so browser initiates download prompt right away (0ms delay!)
+    setContentDisposition(res, safeFilename);
+    res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
     const pythonCmd = getPythonCmd();
     const ytdlp = spawn(pythonCmd, ['-m', 'yt_dlp', ...args]);
-    let ytdlpResponded = false;
+
+    ytdlp.stdout.pipe(res);
 
     ytdlp.on('error', (err) => {
-        if (!ytdlpResponded) {
-            ytdlpResponded = true;
-            console.error('ytdlp spawn error:', err);
-            if (fs.existsSync(tempFilePath)) fs.unlink(tempFilePath, () => {});
+        console.error('ytdlp spawn error:', err);
+        if (!res.headersSent) {
             res.status(500).send('影片下載伺服器元件啟動失敗');
         }
     });
 
-    ytdlp.on('close', (code) => {
-        if (ytdlpResponded) return;
-        ytdlpResponded = true;
-
-        if (code === 0 && fs.existsSync(tempFilePath)) {
-            const stat = fs.statSync(tempFilePath);
-            setContentDisposition(res, safeFilename);
-            res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
-            res.setHeader('Content-Length', stat.size);
-            res.setHeader('X-Content-Type-Options', 'nosniff');
-
-            const fileStream = fs.createReadStream(tempFilePath);
-            fileStream.pipe(res);
-
-            fileStream.on('end', () => {
-                fs.unlink(tempFilePath, () => {});
-            });
-        } else {
-            if (fs.existsSync(tempFilePath)) {
-                fs.unlink(tempFilePath, () => {});
+    if (req) {
+        req.on('close', () => {
+            if (!ytdlp.killed) {
+                ytdlp.kill();
             }
-            res.status(500).send('影片下載合併失敗，請重試。');
-        }
-    });
+        });
+    }
 }
 
 // API: Health check endpoint for Keep-Alive ping
