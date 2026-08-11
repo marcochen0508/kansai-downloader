@@ -846,17 +846,41 @@ def scrape_youtube_direct(url):
             u = f.get('url')
             mime = f.get('mimeType', '')
             q = f.get('qualityLabel') or f.get('quality') or '720p'
+            itag = str(f.get('itag', ''))
             
-            if u:
-                if 'video/mp4' in mime:
+            w = f.get('width') or 0
+            h = f.get('height') or 0
+            eff_height = min(w, h) if (w > 0 and h > 0) else h
+            if not eff_height:
+                m_p = re.search(r'(\d+)p', q)
+                if m_p:
+                    eff_height = int(m_p.group(1))
+                else:
+                    eff_height = 720
+
+            if u or itag:
+                if 'video/mp4' in mime or 'video/webm' in mime:
+                    if eff_height >= 2160:
+                        res_label = "4K 超高畫質 (2160p)"
+                    elif eff_height >= 1440:
+                        res_label = "2K 高畫質 (1440p)"
+                    elif eff_height >= 1080:
+                        res_label = "1080p Full HD"
+                    elif eff_height >= 720:
+                        res_label = "720p HD"
+                    elif eff_height >= 480:
+                        res_label = "480p 標清"
+                    else:
+                        res_label = f"{eff_height}p"
+
                     video_options.append({
-                        'quality': f"{q} 高畫質 (MP4)",
-                        'height': 1080 if '1080' in q else (720 if '720' in q else 480),
+                        'quality': res_label,
+                        'height': eff_height,
                         'ext': 'mp4',
                         'has_audio': 'audio' in mime or f.get('audioQuality') is not None,
                         'size': f.get('contentLength', ''),
-                        'url': u,
-                        'format_id': 'direct',
+                        'url': u or '',
+                        'format_id': itag if itag else 'yt_merge',
                         'webpage_url': clean_url
                     })
                 elif 'audio/mp4' in mime or 'audio/webm' in mime:
@@ -865,8 +889,8 @@ def scrape_youtube_direct(url):
                             'quality': '提取 YouTube 影片原聲 (MP3/M4A)',
                             'ext': 'mp3',
                             'size': f.get('contentLength', ''),
-                            'url': u,
-                            'format_id': 'direct',
+                            'url': u or '',
+                            'format_id': 'bestaudio',
                             'webpage_url': clean_url
                         })
 
@@ -1199,7 +1223,11 @@ def parse_url(target_url):
             vcodec = f.get('vcodec', 'none')
             acodec = f.get('acodec', 'none')
             ext = f.get('ext', 'mp4')
-            height = f.get('height') or 0
+            width = f.get('width') or 0
+            raw_height = f.get('height') or 0
+            # For vertical videos (Shorts / Reels / TikTok), resolution tier (1080p, 720p, 2K, 4K)
+            # is based on min(width, raw_height) so 1080x1920 is correctly 1080p Full HD, NOT 2K.
+            height = min(width, raw_height) if (width > 0 and raw_height > 0) else raw_height
             format_note = f.get('format_note', '') or ''
             filesize = f.get('filesize') or f.get('filesize_approx') or 0
             format_id = f.get('format_id') or ''
@@ -1225,12 +1253,8 @@ def parse_url(target_url):
                     res_label = f"{height}p"
 
                 effective_format_id = format_id
-                # YouTube: tag progressive (combined) formats as 'direct' so server streams without merge
-                if is_youtube and acodec != 'none' and vcodec != 'none':
-                    effective_format_id = 'direct'
-                    res_label += ' (直接下載)'
                 # Instagram / Facebook progressive (has audio): mark as 'direct' for fast CDN streaming
-                elif (is_instagram or is_facebook) and acodec != 'none' and vcodec != 'none':
+                if (is_instagram or is_facebook) and acodec != 'none' and vcodec != 'none':
                     effective_format_id = 'direct'
                 # Instagram / Facebook DASH video-only: keep format_id as-is, server will use yt-dlp to merge
                 elif (is_instagram or is_facebook) and acodec == 'none':

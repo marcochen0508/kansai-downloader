@@ -116,7 +116,7 @@ app.get('/api/download', async (req, res) => {
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
     const formatId = req.query.formatId || '';  // must be declared before isFacebookDash
 
-    const isYouTube = webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'));
+    const isYouTube = (webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'))) || url.includes('googlevideo.com');
     const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || url.includes('.m4s');
     // Instagram uses yt-dlp because IG CDN links expire quickly and require fresh extraction
     // Facebook CDN progressive MP4 (formatId='direct') streams directly; DASH video-only needs yt-dlp merge
@@ -125,15 +125,20 @@ app.get('/api/download', async (req, res) => {
         (webpageUrl.includes('facebook.com') || webpageUrl.includes('fb.watch') || webpageUrl.includes('fb.com')) &&
         formatId !== 'direct';  // Facebook DASH video-only (not a progressive/direct format)
 
-    // Route platforms requiring audio+video merging through yt-dlp
+    // Route platforms requiring audio+video merging or fresh yt-dlp extraction through yt-dlp
     const requiresYtdlpMerge = isYouTube || isBilibili || isInstagram || isFacebookDash;
 
-    const isDirectStream = formatId === 'direct' || type === 'image' || type === 'audio';
+    if (type === 'image') {
+        setContentDisposition(res, safeFilename);
+        res.setHeader('Content-Type', 'image/jpeg');
+        return fetchAndStream(url, res, webpageUrl, safeFilename);
+    }
 
-    
+    const isDirectStream = (formatId === 'direct' || type === 'audio') && !isYouTube;
+
     // Stream directly with redirect + yt-dlp fallback for all non-DASH video platforms (including Facebook)
     if (isDirectStream || (type === 'video' && !requiresYtdlpMerge && url.startsWith('http'))) {
-        const contentType = type === 'image' ? 'image/jpeg' : (type === 'audio' ? 'audio/mpeg' : 'video/mp4');
+        const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', contentType);
 
@@ -141,7 +146,7 @@ app.get('/api/download', async (req, res) => {
     }
 
     // For YouTube, Bilibili, or Instagram — force yt-dlp with H.264/AAC codec selection
-    downloadViaYtdlp(url, webpageUrl, safeFilename, res);
+    downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId, type);
 });
 
 // Proxy Image API to bypass Referer / Hotlink protection
@@ -262,33 +267,46 @@ try {
     console.log('ffmpeg-static not found, using default system ffmpeg');
 }
 
-function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
+function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', type = 'video') {
     const targetUrl = webpageUrl || url;
-    const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.mp4`);
+    const isAudio = type === 'audio' || formatId === 'bestaudio';
+    const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.${isAudio ? 'mp3' : 'mp4'}`);
 
+    const isYouTubeUrl = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be') || url.includes('googlevideo.com');
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
     const isFacebookUrl = targetUrl.includes('facebook') || targetUrl.includes('fb.watch') || targetUrl.includes('fbcdn');
 
-    // Instagram / Facebook: prefer pre-merged progressive formats (faster, avoids ffmpeg DASH merge timeout on Render)
-    // Fall back to DASH merge only if no progressive format is available
-    const formatStr = (isInstagramUrl || isFacebookUrl)
-        ? 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best'
-        : 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
+    let formatStr;
+    if (isAudio) {
+        formatStr = 'bestaudio/best';
+    } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
+        formatStr = `${formatId}+bestaudio/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
+    } else if (isInstagramUrl || isFacebookUrl) {
+        formatStr = 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best';
+    } else {
+        formatStr = 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
+    }
 
     const args = [
         targetUrl,
         '-f', formatStr,
-        '--merge-output-format', 'mp4',
         '-o', tempFilePath
     ];
 
+    if (!isAudio) {
+        args.push('--merge-output-format', 'mp4');
+    }
 
     if (ffmpegPath) {
         args.push('--ffmpeg-location', ffmpegPath);
     }
 
-    if (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be')) {
+    if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
+        const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
+        if (fs.existsSync(ytCookieFile)) {
+            args.push('--cookies', ytCookieFile);
+        }
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
@@ -322,7 +340,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res) {
         if (code === 0 && fs.existsSync(tempFilePath)) {
             const stat = fs.statSync(tempFilePath);
             setContentDisposition(res, safeFilename);
-            res.setHeader('Content-Type', 'video/mp4');
+            res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
             res.setHeader('Content-Length', stat.size);
             res.setHeader('X-Content-Type-Options', 'nosniff');
 
