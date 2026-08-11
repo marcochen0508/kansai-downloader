@@ -858,17 +858,28 @@ def parse_url(target_url):
     is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
     is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
 
-    ydl_opts = {
-        'quiet': True,
-        'no_warnings': True,
-        'skip_download': True,
-        'allow_unplayable_formats': True,
-        'nocheckcertificate': True,
-        'remote_components': ['ejs:github'],
-        'js_runtimes': {'node': {}},
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-        **_get_cookie_opts(clean_target_url),
-    }
+    if is_yt_url:
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'allow_unplayable_formats': True,
+            'nocheckcertificate': True,
+            'extractor_args': {'youtube': {'player_client': ['android_vr', 'mweb']}},
+            **_get_cookie_opts(clean_target_url),
+        }
+    else:
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'allow_unplayable_formats': True,
+            'nocheckcertificate': True,
+            'remote_components': ['ejs:github'],
+            'js_runtimes': {'node': {}},
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            **_get_cookie_opts(clean_target_url),
+        }
 
     # Instagram photo posts: don't fail on "No video formats found", we'll extract images instead
     if is_ig_url:
@@ -881,22 +892,20 @@ def parse_url(target_url):
                 info = ydl.extract_info(clean_target_url, download=False)
         except Exception as e:
             if is_yt_url:
-                # Fallback: Try web,mweb with node JS solver
+                # Fallback: Try android,web_embedded player clients
                 try:
                     yt_fb_opts = {
                         'quiet': True,
                         'skip_download': True,
                         'nocheckcertificate': True,
-                        'remote_components': ['ejs:github'],
-                        'js_runtimes': {'node': {}},
-                        'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}}
+                        'extractor_args': {'youtube': {'player_client': ['android', 'web_embedded']}}
                     }
                     with YoutubeDL(yt_fb_opts) as ydl_fb:
                         info = ydl_fb.extract_info(clean_target_url, download=False)
                 except Exception:
-                    # Fallback 2: Try plain default YoutubeDL
+                    # Fallback 2: Try ios,android player clients
                     try:
-                        with YoutubeDL({'quiet': True, 'skip_download': True, 'remote_components': ['ejs:github'], 'js_runtimes': {'node': {}}}) as ydl_fb2:
+                        with YoutubeDL({'quiet': True, 'skip_download': True, 'nocheckcertificate': True, 'extractor_args': {'youtube': {'player_client': ['ios', 'android']}}}) as ydl_fb2:
                             info = ydl_fb2.extract_info(clean_target_url, download=False)
                     except Exception:
                         raise e
