@@ -270,6 +270,8 @@ try {
 function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', type = 'video', req = null) {
     const targetUrl = webpageUrl || url;
     const isAudio = type === 'audio' || formatId === 'bestaudio';
+    const ext = isAudio ? 'mp3' : 'mp4';
+    const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`);
 
     const isYouTubeUrl = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be') || url.includes('googlevideo.com');
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
@@ -279,18 +281,22 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
-        formatStr = `${formatId}+bestaudio/best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best`;
-    } else if (isInstagramUrl || isFacebookUrl || isYouTubeUrl) {
+        formatStr = `${formatId}+bestaudio/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
+    } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best';
     } else {
-        formatStr = 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/best';
+        formatStr = 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
     }
 
     const args = [
         targetUrl,
         '-f', formatStr,
-        '-o', '-'  // Stream directly to stdout so headers and chunks start sending immediately (prevents Render 30s timeout)
+        '-o', tempFilePath
     ];
+
+    if (!isAudio) {
+        args.push('--merge-output-format', 'mp4');
+    }
 
     if (ffmpegPath) {
         args.push('--ffmpeg-location', ffmpegPath);
@@ -315,20 +321,58 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         args.push('--cookies', cookieFile);
     }
 
-    // Immediately send headers so browser initiates download prompt right away (0ms delay!)
+    // Immediately send HTTP headers to client so browser opens download prompt (0ms delay!)
+    // and Render HTTP proxy knows connection is active.
     setContentDisposition(res, safeFilename);
     res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (typeof res.flushHeaders === 'function') {
+        res.flushHeaders();
+    }
 
     const pythonCmd = getPythonCmd();
     const ytdlp = spawn(pythonCmd, ['-m', 'yt_dlp', ...args]);
 
-    ytdlp.stdout.pipe(res);
+    // Send a periodic 5-second heartbeat empty chunk to keep Render proxy TCP socket alive while downloading/merging
+    const heartbeatTimer = setInterval(() => {
+        if (!res.writableEnded && res.writable) {
+            res.write('');
+        }
+    }, 5000);
+
+    let cleanedUp = false;
+    const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        clearInterval(heartbeatTimer);
+        if (fs.existsSync(tempFilePath)) {
+            fs.unlink(tempFilePath, () => {});
+        }
+    };
 
     ytdlp.on('error', (err) => {
         console.error('ytdlp spawn error:', err);
-        if (!res.headersSent) {
-            res.status(500).send('影片下載伺服器元件啟動失敗');
+        cleanup();
+        if (!res.writableEnded) res.end();
+    });
+
+    ytdlp.on('close', (code) => {
+        clearInterval(heartbeatTimer);
+
+        if (code === 0 && fs.existsSync(tempFilePath)) {
+            const stream = fs.createReadStream(tempFilePath);
+            stream.pipe(res);
+            stream.on('end', () => {
+                cleanup();
+            });
+            stream.on('error', () => {
+                cleanup();
+                if (!res.writableEnded) res.end();
+            });
+        } else {
+            console.error('ytdlp exit code non-zero:', code);
+            cleanup();
+            if (!res.writableEnded) res.end();
         }
     });
 
@@ -337,6 +381,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             if (!ytdlp.killed) {
                 ytdlp.kill();
             }
+            cleanup();
         });
     }
 }
