@@ -785,7 +785,8 @@ def scrape_youtube_direct(url):
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1',
-        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+        'Accept-Language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7',
+        'Cookie': 'SOCS=CAESEwgDEgk2OTg3OTY2MzIaAmVuIAEaBgiA_a-1bg; CONSENT=YES+cb.20230531-04-p0.en+FX+111;'
     }
 
     try:
