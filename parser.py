@@ -796,8 +796,10 @@ def _friendly_error(err_msg, url=''):
         if 'login' in e or 'vip' in e or 'member' in e:
             return '❌ 此 B 站影片需要登入或 B 站大會員才能觀看，系統目前無法下載需要付費或登入的 B 站內容。'
 
-    # YouTube age restriction / private / live / unavailable
+    # YouTube age restriction / private / live / unavailable / bot block
     if 'youtube' in e or 'youtube' in url.lower() or 'youtu.be' in url.lower():
+        if 'bot' in e or 'confirm you' in e or 'not a bot' in e:
+            return '⚠️ 此 YouTube 影片暫時受 YouTube 伺服器驗證保護，系統正嘗試自動切換備用通訊協定，請稍後再試一次。'
         if 'unavailable' in e or 'not found' in e or 'removed' in e or 'does not exist' in e:
             return '❌ 此 YouTube 影片已下架、已刪除、不存在或網址不正確，請確認連結是否能在無登入狀態下開啟。'
         if 'private' in e:
@@ -878,12 +880,21 @@ def parse_url(target_url):
                 info = ydl.extract_info(clean_target_url, download=False)
         except Exception as e:
             if is_yt_url:
-                # Fallback: Try plain default YoutubeDL without custom headers
+                # Fallback 1: Try with player_client mweb,ios,android (bypasses bot verification on cloud IPs)
                 try:
-                    with YoutubeDL({'quiet': True, 'skip_download': True}) as ydl_fb:
+                    yt_fb_opts = {
+                        **ydl_opts,
+                        'extractor_args': {'youtube': {'player_client': ['mweb', 'ios', 'android']}}
+                    }
+                    with YoutubeDL(yt_fb_opts) as ydl_fb:
                         info = ydl_fb.extract_info(clean_target_url, download=False)
                 except Exception:
-                    raise e
+                    # Fallback 2: Try plain default YoutubeDL without custom headers
+                    try:
+                        with YoutubeDL({'quiet': True, 'skip_download': True}) as ydl_fb2:
+                            info = ydl_fb2.extract_info(clean_target_url, download=False)
+                    except Exception:
+                        raise e
             elif 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url:
                 fb_res = scrape_facebook_fallback(clean_target_url)
                 if fb_res.get('success'):
