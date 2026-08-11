@@ -796,11 +796,13 @@ def _friendly_error(err_msg, url=''):
         if 'login' in e or 'vip' in e or 'member' in e:
             return '❌ 此 B 站影片需要登入或 B 站大會員才能觀看，系統目前無法下載需要付費或登入的 B 站內容。'
 
-    # YouTube age restriction / private / live
+    # YouTube age restriction / private / live / unavailable
     if 'youtube' in e or 'youtube' in url.lower() or 'youtu.be' in url.lower():
+        if 'unavailable' in e or 'not found' in e or 'removed' in e or 'does not exist' in e:
+            return '❌ 此 YouTube 影片已下架、已刪除、不存在或網址不正確，請確認連結是否能在無登入狀態下開啟。'
         if 'private' in e:
             return '❌ 此 YouTube 影片為不公開或私人影片，無法下載。'
-        if 'age' in e or 'sign in' in e:
+        if 'confirm your age' in e or ('age' in e and 'gate' in e):
             return '⚠️ 此 YouTube 影片有年齡限制，需要登入驗證才能存取，系統目前無法下載此類影片。'
         if 'live' in e:
             return '⚠️ 此 YouTube 影片為直播進行中，無法下載尚未結束的直播，請等直播結束後再試。'
