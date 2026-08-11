@@ -976,76 +976,63 @@ def parse_url(target_url):
         if fb_res.get('success'):
             return fb_res
 
-    is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
-    is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
-
-    if is_yt_url:
-        yt_direct_res = scrape_youtube_direct(clean_target_url)
-        return yt_direct_res
-
-    if is_yt_url:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'skip_download': True,
-            'allow_unplayable_formats': True,
-            'nocheckcertificate': True,
-            'extractor_args': {'youtube': {'player_client': ['android_vr', 'mweb']}},
-            **_get_cookie_opts(clean_target_url),
-        }
-    else:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'skip_download': True,
-            'allow_unplayable_formats': True,
-            'nocheckcertificate': True,
-            'remote_components': ['ejs:github'],
-            'js_runtimes': {'node': {}},
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-            **_get_cookie_opts(clean_target_url),
-        }
-
-    # Instagram photo posts: don't fail on "No video formats found", we'll extract images instead
-    if is_ig_url:
-        ydl_opts['ignore_no_formats_error'] = True
-
     try:
-        info = None
-        try:
+        is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
+        is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
+
+        if is_yt_url:
+            yt_direct_res = scrape_youtube_direct(clean_target_url)
+            if yt_direct_res.get('success'):
+                return yt_direct_res
+
+            client_tiers = [
+                ['android', 'tvhtml5'],
+                ['android_vr', 'mweb'],
+                ['tv', 'android'],
+                ['web', 'mweb']
+            ]
+
+            info = None
+            last_err = None
+            for clients in client_tiers:
+                try:
+                    ydl_opts = {
+                        'quiet': True,
+                        'no_warnings': True,
+                        'skip_download': True,
+                        'allow_unplayable_formats': True,
+                        'nocheckcertificate': True,
+                        'extractor_args': {'youtube': {'player_client': clients}},
+                        **_get_cookie_opts(clean_target_url),
+                    }
+                    with YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(clean_target_url, download=False)
+                        if info:
+                            break
+                except Exception as e:
+                    last_err = e
+
+            if not info and last_err:
+                raise last_err
+        else:
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'skip_download': True,
+                'allow_unplayable_formats': True,
+                'nocheckcertificate': True,
+                'remote_components': ['ejs:github'],
+                'js_runtimes': {'node': {}},
+                'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                **_get_cookie_opts(clean_target_url),
+            }
+
+            # Instagram photo posts: don't fail on "No video formats found", we'll extract images instead
+            if is_ig_url:
+                ydl_opts['ignore_no_formats_error'] = True
+
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(clean_target_url, download=False)
-        except Exception as e:
-            if is_yt_url:
-                # Fallback 1: Try android,web_embedded player clients
-                try:
-                    yt_fb_opts = {
-                        'quiet': True,
-                        'skip_download': True,
-                        'nocheckcertificate': True,
-                        'extractor_args': {'youtube': {'player_client': ['android', 'web_embedded']}}
-                    }
-                    with YoutubeDL(yt_fb_opts) as ydl_fb:
-                        info = ydl_fb.extract_info(clean_target_url, download=False)
-                except Exception:
-                    # Fallback 2: Try ios,android player clients
-                    try:
-                        with YoutubeDL({'quiet': True, 'skip_download': True, 'nocheckcertificate': True, 'extractor_args': {'youtube': {'player_client': ['ios', 'android']}}}) as ydl_fb2:
-                            info = ydl_fb2.extract_info(clean_target_url, download=False)
-                    except Exception:
-                        # Fallback 3: Try tv,mweb player clients
-                        try:
-                            with YoutubeDL({'quiet': True, 'skip_download': True, 'nocheckcertificate': True, 'extractor_args': {'youtube': {'player_client': ['tv', 'mweb']}}}) as ydl_fb3:
-                                info = ydl_fb3.extract_info(clean_target_url, download=False)
-                        except Exception:
-                            raise e
-            elif 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url:
-                fb_res = scrape_facebook_fallback(clean_target_url)
-                if fb_res.get('success'):
-                    return fb_res
-                raise e
-            else:
-                raise e
 
         if not info:
             return {"success": False, "error": "無法解析該網址，請確認連結是否公開且正確。"}
