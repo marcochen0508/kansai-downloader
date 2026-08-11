@@ -19,13 +19,17 @@ for d in site_dirs:
 # Cookie file path (same directory as this script)
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 _IG_COOKIE_FILE = os.path.join(_SCRIPT_DIR, 'ig_cookies.txt')
+_YT_COOKIE_FILE = os.path.join(_SCRIPT_DIR, 'yt_cookies.txt')
 
 def _get_cookie_opts(url=''):
-    """Return cookiefile option if ig_cookies.txt exists and URL is Meta (IG/Threads/FB)."""
+    """Return cookiefile option if cookiefile exists for Meta or YouTube."""
     url_lower = url.lower()
     is_meta = any(d in url_lower for d in ['instagram.com', 'instagr.am', 'threads.net', 'threads.com', 'facebook.com', 'fb.watch', 'fb.com'])
+    is_yt = 'youtube.com' in url_lower or 'youtu.be' in url_lower
     if is_meta and os.path.isfile(_IG_COOKIE_FILE):
         return {'cookiefile': _IG_COOKIE_FILE}
+    if is_yt and os.path.isfile(_YT_COOKIE_FILE):
+        return {'cookiefile': _YT_COOKIE_FILE}
     return {}
 
 # Force stdout to UTF-8 for Windows compatibility
