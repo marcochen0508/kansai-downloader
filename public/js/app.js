@@ -58,27 +58,71 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Global platform sequence counters (e.g. FB001, IG002, YT001)
+    const platformCounters = {};
+    const platformPrefixes = {
+        facebook: 'FB',
+        instagram: 'IG',
+        youtube: 'YT',
+        tiktok: 'TK',
+        threads: 'TH',
+        twitter: 'X',
+        xiaohongshu: 'RED',
+        bilibili: 'BILI',
+        telegram: 'TG',
+        general: 'DL'
+    };
+
+    function getPlatformSequenceName(platformId) {
+        const key = (platformId || 'general').toLowerCase();
+        const prefix = platformPrefixes[key] || 'DL';
+        if (!platformCounters[key]) {
+            platformCounters[key] = 0;
+        }
+        platformCounters[key]++;
+        const numStr = String(platformCounters[key]).padStart(3, '0');
+        return `${prefix}${numStr}`;
+    }
+
+    function isGenericTitle(title) {
+        if (!title) return true;
+        const lower = title.toLowerCase().trim();
+        const genericKeywords = [
+            'facebook 短影音', 'facebook 貼文', 'video facebook', 'reel',
+            'instagram 貼文', 'instagram 短影音', 'photo by', 'video by', 'reel by', 'post by',
+            'tiktok短影音', 'tiktok video', '社群影音', '社群動態', '社群內容'
+        ];
+        return genericKeywords.some(kw => lower === kw || lower.startsWith(kw));
+    }
+
     // Clean filename helper for downloading readable files
-    function makeCleanFilename(title, qualityStr, ext) {
-        let clean = (title || '社群影音')
+    function makeCleanFilename(title, qualityStr, ext, platformId, currentSeqName = '') {
+        let cleanQuality = (qualityStr || '')
+            .replace(/\(.*\)/g, '')
+            .replace(/🎬|🎵|🖼️/g, '')
+            .replace(/[\\/:*?"<>|#]/g, '_')
+            .trim();
+
+        if (isGenericTitle(title)) {
+            const seqName = currentSeqName || getPlatformSequenceName(platformId);
+            return `${seqName}_${cleanQuality}.${ext}`.replace(/__+/g, '_');
+        }
+
+        let clean = (title || '')
             .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/g, '')
-            .replace(/TikTok video #\d+/gi, 'TikTok短影音')
-            .replace(/video #\d+/gi, '短影音')
+            .replace(/TikTok video #\d+/gi, '')
+            .replace(/video #\d+/gi, '')
             .replace(/video by \w+/gi, '')
             .replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB\u300C\u300D]/g, '')  // Unicode quotes
             .replace(/[\\/:*?"<>|#]/g, '_')
             .replace(/\s+/g, '_')
             .replace(/_+/g, '_')
             .trim();
-            
-        let cleanQuality = (qualityStr || '')
-            .replace(/\(.*\)/g, '')
-            .replace(/🎬|🎵|🖼️/g, '')
-            .trim();
 
-        if (clean.length > 30) {
-            clean = clean.substring(0, 30);
+        if (clean.length > 35) {
+            clean = clean.substring(0, 35);
         }
+
         return `${clean}_${cleanQuality}.${ext}`.replace(/__+/g, '_');
     }
 
@@ -225,6 +269,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
+        const platformId = data.platform ? data.platform.id : 'general';
+        let currentSeqName = '';
+        if (isGenericTitle(data.title)) {
+            currentSeqName = getPlatformSequenceName(platformId);
+        }
+
         // Render Media List with Inline Visual Thumbnail Previews via Proxy
         videoList.innerHTML = '';
         audioList.innerHTML = '';
@@ -240,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const item = document.createElement('div');
                 item.className = 'download-item media-preview-item';
                 
-                const targetFilename = makeCleanFilename(data.title, vid.quality, vid.ext);
+                const targetFilename = makeCleanFilename(data.title, vid.quality, vid.ext, platformId, currentSeqName);
                 const dlProxyUrl = `/api/download?url=${safeEncode(vid.url)}&filename=${safeEncode(targetFilename)}&type=video&webpageUrl=${safeEncode(vid.webpage_url || '')}&formatId=${safeEncode(vid.format_id || '')}`;
 
                 const itemVidThumb = vid.thumbnail || data.thumbnail || '';
@@ -271,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const item = document.createElement('div');
                 item.className = 'download-item media-preview-item';
                 
-                const targetFilename = makeCleanFilename(data.title, aud.quality, aud.ext);
+                const targetFilename = makeCleanFilename(data.title, aud.quality, aud.ext, platformId, currentSeqName);
                 const dlProxyUrl = `/api/download?url=${safeEncode(aud.url)}&filename=${safeEncode(targetFilename)}&type=audio&webpageUrl=${safeEncode(aud.webpage_url || '')}&formatId=${safeEncode(aud.format_id || '')}`;
 
                 item.innerHTML = `
@@ -306,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     labelText = `照片 ${index + 1} (高清原圖)`;
                 }
 
-                const cleanName = makeCleanFilename(data.title, labelText, "jpg");
+                const cleanName = makeCleanFilename(data.title, labelText, "jpg", platformId, currentSeqName);
                 const proxiedImgUrl = getProxyImageUrl(imgUrl);
 
                 item.innerHTML = `

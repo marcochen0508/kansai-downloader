@@ -109,15 +109,17 @@ function setContentDisposition(res, filename) {
 // API: Download Handler with yt-dlp Video+Audio Merge & Headers Proxy
 app.get('/api/download', async (req, res) => {
     const { url, filename, type, webpageUrl } = req.query;
-    if (!url) {
+    const targetUrl = webpageUrl || url;
+    if (!targetUrl) {
         return res.status(400).send('缺少下載連結');
     }
 
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
     const formatId = req.query.formatId || '';  // must be declared before isFacebookDash
 
-    const isYouTube = (webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'))) || url.includes('googlevideo.com');
-    const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || url.includes('.m4s');
+    const mediaUrl = url || webpageUrl;
+    const isYouTube = (webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'))) || (mediaUrl && mediaUrl.includes('googlevideo.com'));
+    const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || (mediaUrl && mediaUrl.includes('.m4s'));
     // Instagram uses yt-dlp because IG CDN links expire quickly and require fresh extraction
     // Facebook CDN progressive MP4 (formatId='direct') streams directly; DASH video-only needs yt-dlp merge
     const isInstagram = webpageUrl && (webpageUrl.includes('instagram.com') || webpageUrl.includes('instagr.am'));
@@ -131,22 +133,22 @@ app.get('/api/download', async (req, res) => {
     if (type === 'image') {
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', 'image/jpeg');
-        return fetchAndStream(url, res, webpageUrl, safeFilename);
+        return fetchAndStream(mediaUrl, res, webpageUrl, safeFilename);
     }
 
     const isDirectStream = (formatId === 'direct' || type === 'audio') && !isYouTube;
 
     // Stream directly with redirect + yt-dlp fallback for all non-DASH video platforms (including Facebook)
-    if (isDirectStream || (type === 'video' && !requiresYtdlpMerge && url.startsWith('http'))) {
+    if (isDirectStream || (type === 'video' && !requiresYtdlpMerge && mediaUrl.startsWith('http'))) {
         const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', contentType);
 
-        return fetchAndStream(url, res, webpageUrl, safeFilename);
+        return fetchAndStream(mediaUrl, res, webpageUrl, safeFilename);
     }
 
     // For YouTube, Bilibili, or Instagram — force yt-dlp with H.264/AAC codec selection
-    downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId, type, req);
+    downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename, res, formatId, type, req);
 });
 
 // Proxy Image API to bypass Referer / Hotlink protection
@@ -273,7 +275,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const ext = isAudio ? 'mp3' : 'mp4';
     const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`);
 
-    const isYouTubeUrl = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be') || url.includes('googlevideo.com');
+    const isYouTubeUrl = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be') || (url && url.includes('googlevideo.com'));
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
     const isFacebookUrl = targetUrl.includes('facebook') || targetUrl.includes('fb.watch') || targetUrl.includes('fbcdn');
 
@@ -304,6 +306,8 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
+        args.push('--js-runtimes', 'node');
+        args.push('--extractor-args', 'youtube:player_client=android,tvhtml5');
         const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
         if (fs.existsSync(ytCookieFile)) {
             args.push('--cookies', ytCookieFile);
@@ -321,30 +325,13 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         args.push('--cookies', cookieFile);
     }
 
-    // Immediately send HTTP headers to client so browser opens download prompt (0ms delay!)
-    // and Render HTTP proxy knows connection is active.
-    setContentDisposition(res, safeFilename);
-    res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    if (typeof res.flushHeaders === 'function') {
-        res.flushHeaders();
-    }
-
     const pythonCmd = getPythonCmd();
     const ytdlp = spawn(pythonCmd, ['-m', 'yt_dlp', ...args]);
-
-    // Send a periodic 5-second heartbeat empty chunk to keep Render proxy TCP socket alive while downloading/merging
-    const heartbeatTimer = setInterval(() => {
-        if (!res.writableEnded && res.writable) {
-            res.write('');
-        }
-    }, 5000);
 
     let cleanedUp = false;
     const cleanup = () => {
         if (cleanedUp) return;
         cleanedUp = true;
-        clearInterval(heartbeatTimer);
         if (fs.existsSync(tempFilePath)) {
             fs.unlink(tempFilePath, () => {});
         }
@@ -353,13 +340,21 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     ytdlp.on('error', (err) => {
         console.error('ytdlp spawn error:', err);
         cleanup();
-        if (!res.writableEnded) res.end();
+        if (!res.headersSent) {
+            res.status(500).send('影片下載處理錯誤');
+        } else if (!res.writableEnded) {
+            res.end();
+        }
     });
 
     ytdlp.on('close', (code) => {
-        clearInterval(heartbeatTimer);
-
         if (code === 0 && fs.existsSync(tempFilePath)) {
+            const stat = fs.statSync(tempFilePath);
+            setContentDisposition(res, safeFilename);
+            res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
+            res.setHeader('Content-Length', stat.size);
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+
             const stream = fs.createReadStream(tempFilePath);
             stream.pipe(res);
             stream.on('end', () => {
@@ -372,7 +367,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         } else {
             console.error('ytdlp exit code non-zero:', code);
             cleanup();
-            if (!res.writableEnded) res.end();
+            if (!res.headersSent) {
+                res.status(500).send('影片下載失敗，請確認該影片連結是否公開。');
+            } else if (!res.writableEnded) {
+                res.end();
+            }
         }
     });
 

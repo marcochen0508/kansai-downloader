@@ -27,7 +27,13 @@ def _get_cookie_opts(url=''):
     is_meta = any(d in url_lower for d in ['instagram.com', 'instagr.am', 'threads.net', 'threads.com', 'facebook.com', 'fb.watch', 'fb.com'])
     is_yt = 'youtube.com' in url_lower or 'youtu.be' in url_lower
     if is_meta and os.path.isfile(_IG_COOKIE_FILE):
-        return {'cookiefile': _IG_COOKIE_FILE}
+        try:
+            with open(_IG_COOKIE_FILE, 'r', encoding='utf-8') as cf:
+                content = cf.read()
+                if 'sessionid' in content:
+                    return {'cookiefile': _IG_COOKIE_FILE}
+        except Exception:
+            pass
     if is_yt and os.path.isfile(_YT_COOKIE_FILE):
         return {'cookiefile': _YT_COOKIE_FILE}
     return {}
@@ -618,32 +624,13 @@ def scrape_red_fallback(url):
 
 
 
-def _scrape_ig_photo_fallback(url):
-    """Fallback scraper for Instagram photo posts when yt-dlp finds no video formats."""
+def scrape_instagram_fallback(url):
+    """Fallback scraper for Instagram photo/video posts when yt-dlp fails."""
     clean_url = url.split('?')[0].rstrip('/')
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8',
     }
-
-    # Build cookie header from ig_cookies.txt if available
-    cookie_header = ''
-    if os.path.isfile(_IG_COOKIE_FILE):
-        try:
-            with open(_IG_COOKIE_FILE, 'r', encoding='utf-8') as cf:
-                parts = []
-                for line in cf:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-                    cols = line.split('\t')
-                    if len(cols) >= 7:
-                        parts.append(f"{cols[5]}={cols[6]}")
-            cookie_header = '; '.join(parts)
-        except Exception:
-            pass
-    if cookie_header:
-        headers['Cookie'] = cookie_header
 
     try:
         ctx = ssl.create_default_context()
@@ -651,18 +638,47 @@ def _scrape_ig_photo_fallback(url):
         ctx.verify_mode = ssl.CERT_NONE
         req = urllib.request.Request(clean_url, headers=headers)
         with urllib.request.urlopen(req, context=ctx, timeout=12) as resp:
-            html_text = resp.read().decode('utf-8')
+            html_text = resp.read().decode('utf-8', errors='ignore')
 
         # Extract OG tags
-        title_m = re.search(r'<meta\s+property="og:title"\s+content="([^"]*)"', html_text)
-        desc_m = re.search(r'<meta\s+property="og:description"\s+content="([^"]*)"', html_text)
-        thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', html_text)
+        title_m = re.search(r'<meta\s+property="og:title"\s+content="([^"]*)"', html_text) or \
+                  re.search(r'<meta\s+content="([^"]*)"\s+property="og:title"', html_text)
+        desc_m = re.search(r'<meta\s+property="og:description"\s+content="([^"]*)"', html_text) or \
+                 re.search(r'<meta\s+content="([^"]*)"\s+property="og:description"', html_text)
+        thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', html_text) or \
+                  re.search(r'<meta\s+content="([^"]*)"\s+property="og:image"', html_text)
 
-        title = html_lib.unescape(title_m.group(1)) if title_m else 'Instagram 貼文'
+        raw_title = html_lib.unescape(title_m.group(1)) if title_m else 'Instagram 貼文'
         description = html_lib.unescape(desc_m.group(1)) if desc_m else ''
         thumbnail = html_lib.unescape(thumb_m.group(1).replace('&amp;', '&')) if thumb_m else ''
 
-        # Extract all high-res images from display_resources / candidates
+        # Search for JSON caption text inside script tags
+        captions = re.findall(r'"caption"\s*:\s*\{\s*"text"\s*:\s*"([^"]+)"', html_text) or \
+                   re.findall(r'"text"\s*:\s*"([^"]+)"', html_text)
+        if captions:
+            for c in captions:
+                clean_c = html_lib.unescape(c.encode().decode('unicode_escape', errors='ignore')).strip()
+                if len(clean_c) > 5 and not clean_c.startswith("http") and not clean_c.startswith("static"):
+                    description = clean_c
+                    break
+
+        uploader = 'Instagram 創作者'
+        m_user = re.search(r'instagram\.com/([^/]+)/', clean_url)
+        if m_user and m_user.group(1) not in ('p', 'reel', 'reels', 'tv'):
+            uploader = f"@{m_user.group(1)}"
+        elif 'on Instagram' in raw_title:
+            parts = raw_title.split('on Instagram')
+            if parts[0].strip():
+                uploader = parts[0].strip()
+
+        title = raw_title
+        if description and (title.startswith('Instagram') or 'on Instagram' in title or 'Photo by' in title or 'Video by' in title):
+            title = description[:40]
+
+        if uploader and uploader not in title and not title.startswith(uploader):
+            title = f"{uploader} - {title}"
+
+        # Extract high-res images
         images = []
         img_blocks = re.findall(r'"display_resources":\[(.*?)\]', html_text) or \
                      re.findall(r'"candidates":\[(.*?)\]', html_text)
@@ -679,33 +695,117 @@ def _scrape_ig_photo_fallback(url):
         if not images and thumbnail:
             images.append(thumbnail)
 
-        if not images:
-            return {"success": False, "error": "無法提取此 Instagram 貼文的圖片，可能為私人帳號或需要登入。"}
+        # Extract video version URLs if present
+        videos = []
+        audios = []
+        raw_videos = re.findall(r'"video_versions"\s*:\s*(\[[^\]]+\])', html_text) or re.findall(r'"video_url"\s*:\s*"([^"]+)"', html_text)
+        if raw_videos:
+            v_urls = []
+            for v_item in raw_videos:
+                if isinstance(v_item, str) and v_item.startswith('['):
+                    v_srcs = re.findall(r'"url"\s*:\s*"([^"]+)"', v_item)
+                    v_urls.extend(v_srcs)
+                elif isinstance(v_item, str):
+                    v_urls.append(v_item)
+            
+            seen_v = set()
+            for vu in v_urls:
+                clean_vu = html_lib.unescape(vu.replace('\\/', '/').replace('\\u0026', '&'))
+                base_v = clean_vu.split('?')[0]
+                if base_v not in seen_v:
+                    seen_v.add(base_v)
+                    videos.append({
+                        'quality': '高畫質影片 (MP4)',
+                        'height': 1080,
+                        'ext': 'mp4',
+                        'has_audio': True,
+                        'size': '',
+                        'url': clean_vu,
+                        'format_id': 'direct',
+                        'webpage_url': clean_url
+                    })
+                    audios.append({
+                        'quality': '提取 Instagram 影片原聲 (MP3)',
+                        'ext': 'mp3',
+                        'size': '',
+                        'url': clean_vu,
+                        'format_id': 'bestaudio',
+                        'webpage_url': clean_url
+                    })
 
-        # Extract uploader from URL
-        uploader = 'Instagram 創作者'
-        m_user = re.search(r'instagram\.com/([^/]+)/', clean_url)
-        if m_user and m_user.group(1) not in ('p', 'reel', 'reels', 'tv'):
-            uploader = f"@{m_user.group(1)}"
+        if not images and not videos:
+            return {"success": False, "error": "無法提取此 Instagram 貼文，可能為私人帳號或連結無效。"}
 
         return {
             "success": True,
             "platform": {"id": "instagram", "name": "Instagram", "icon": "📸", "color": "#e1306c"},
             "title": title,
-            "description": description,
+            "description": description or title,
             "uploader": uploader,
             "thumbnail": thumbnail,
-            "videos": [],
-            "audios": [],
+            "videos": videos,
+            "audios": audios,
             "images": images[:10],
             "webpage_url": clean_url
         }
     except Exception as e:
-        return {"success": False, "error": f"Instagram 照片解析失敗: {str(e)}"}
+        return {"success": False, "error": f"Instagram 解析失敗: {str(e)}"}
+
+
+def clean_fb_metadata(fb_title, fb_desc):
+    clean_title = ""
+    clean_desc = ""
+    clean_uploader = "Facebook 創作者"
+
+    boilerplate = [
+        "到 Facebook 上查看", "影片是一起享受", "在 Facebook 上查看貼文", 
+        "See more of", "Log in to Facebook", "登入 Facebook", "熱門影片"
+    ]
+
+    if fb_desc:
+        desc_candidate = fb_desc.strip()
+        if not any(b in desc_candidate for b in boilerplate):
+            clean_desc = desc_candidate
+
+    if fb_title:
+        title_raw = fb_title.strip()
+        if '|' in title_raw:
+            parts = [p.strip() for p in title_raw.split('|') if p.strip()]
+            non_stat_parts = []
+            for p in parts:
+                if not re.search(r'(\d+.*(?:觀看|心情|讚|次|點讚|views|likes|reactions|comments|shares))', p, re.IGNORECASE) and p.lower() != 'facebook':
+                    non_stat_parts.append(p)
+            
+            if len(non_stat_parts) >= 2:
+                clean_desc = clean_desc or non_stat_parts[0]
+                clean_uploader = non_stat_parts[-1]
+                clean_title = f"{clean_uploader} - {clean_desc}"
+            elif len(non_stat_parts) == 1:
+                clean_desc = clean_desc or non_stat_parts[0]
+                clean_title = clean_desc
+        elif '-' in title_raw:
+            parts = [p.strip() for p in title_raw.split('-') if p.strip()]
+            if len(parts) >= 2 and parts[-1].lower() != 'facebook':
+                clean_uploader = parts[0]
+                clean_desc = clean_desc or parts[1]
+                clean_title = f"{clean_uploader} - {clean_desc}"
+            elif len(parts) == 1:
+                clean_title = parts[0]
+        else:
+            if not any(b in title_raw for b in boilerplate):
+                clean_title = title_raw
+
+    if clean_desc and not clean_title:
+        clean_title = clean_desc
+
+    if clean_uploader != "Facebook 創作者" and clean_title and clean_uploader not in clean_title:
+        clean_title = f"{clean_uploader} - {clean_title}"
+
+    return clean_title, clean_desc, clean_uploader
 
 
 def scrape_facebook_fallback(url):
-    """Fallback scraper for Facebook Reels/Videos using node script wrapper."""
+    """Fallback scraper for Facebook Reels/Videos using node script wrapper + OpenGraph enrichment."""
     clean_url = normalize_url(url)
     scraper_path = os.path.join(_SCRIPT_DIR, 'fb_scraper.js')
     
@@ -713,6 +813,35 @@ def scrape_facebook_fallback(url):
         return {"success": False, "error": "fb_scraper.js not found"}
 
     try:
+        # 1. Fetch OpenGraph title and description from Facebook page directly
+        raw_fb_title = ""
+        raw_fb_desc = ""
+        try:
+            headers = {
+                'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+                'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+            }
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(clean_url, headers=headers)
+            with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
+                content = resp.read().decode('utf-8', errors='ignore')
+                m_title = re.search(r'<meta\s+property="og:title"\s+content="([^"]*)"', content) or \
+                          re.search(r'<meta\s+content="([^"]*)"\s+property="og:title"', content)
+                m_desc = re.search(r'<meta\s+property="og:description"\s+content="([^"]*)"', content) or \
+                         re.search(r'<meta\s+content="([^"]*)"\s+property="og:description"', content) or \
+                         re.search(r'<meta\s+name="description"\s+content="([^"]*)"', content)
+                
+                if m_title:
+                    raw_fb_title = html_lib.unescape(m_title.group(1)).strip()
+                if m_desc:
+                    raw_fb_desc = html_lib.unescape(m_desc.group(1)).strip()
+        except Exception:
+            pass
+
+        fb_title, fb_desc, fb_uploader = clean_fb_metadata(raw_fb_title, raw_fb_desc)
+
         res = subprocess.run(
             ['node', scraper_path, clean_url],
             capture_output=True,
@@ -751,16 +880,16 @@ def scrape_facebook_fallback(url):
                                 'webpage_url': clean_url
                             })
 
-                        title = data.get('title') or 'Facebook 短影音 / Reel'
-                        if title.lower() == 'video facebook':
-                            title = 'Facebook 短影音 / Reel'
+                        title = fb_title or (data.get('title') if data.get('title') and data.get('title').lower() != 'video facebook' else '') or 'Facebook 短影音 / Reel'
+                        description = fb_desc or (title if title != 'Facebook 短影音 / Reel' else 'Facebook 貼文動態')
+                        uploader = fb_uploader or 'Facebook 創作者'
 
                         return {
                             "success": True,
                             "platform": platform,
                             "title": title,
-                            "description": title,
-                            "uploader": "Facebook 創作者",
+                            "description": description,
+                            "uploader": uploader,
                             "thumbnail": data.get('thumbnail', ''),
                             "videos": video_options,
                             "audios": audio_options,
@@ -768,7 +897,9 @@ def scrape_facebook_fallback(url):
                             "webpage_url": clean_url
                         }
     except Exception as e:
-        pass
+        return {"success": False, "error": f"Facebook 解析失敗: {str(e)}"}
+
+    return {"success": False, "error": "Facebook 解析失敗"}
 
 def scrape_youtube_direct(url):
     """Direct mobile player_response scraper for YouTube URLs to bypass Cloud IP blocks."""
@@ -879,7 +1010,7 @@ def scrape_youtube_direct(url):
                         'ext': 'mp4',
                         'has_audio': 'audio' in mime or f.get('audioQuality') is not None,
                         'size': f.get('contentLength', ''),
-                        'url': u or '',
+                        'url': u or clean_url,
                         'format_id': itag if itag else 'yt_merge',
                         'webpage_url': clean_url
                     })
@@ -889,7 +1020,7 @@ def scrape_youtube_direct(url):
                             'quality': '提取 YouTube 影片原聲 (MP3/M4A)',
                             'ext': 'mp3',
                             'size': f.get('contentLength', ''),
-                            'url': u or '',
+                            'url': u or clean_url,
                             'format_id': 'bestaudio',
                             'webpage_url': clean_url
                         })
@@ -1325,11 +1456,14 @@ def parse_url(target_url):
 
     except Exception as e:
         err_msg = str(e)
-        # Instagram photo post: yt-dlp says "No video formats found" but post has images
-        if is_ig_url and 'no video formats' in err_msg.lower():
-            ig_photo_res = _scrape_ig_photo_fallback(clean_target_url)
-            if ig_photo_res.get('success'):
-                return ig_photo_res
+        if is_ig_url:
+            ig_res = scrape_instagram_fallback(clean_target_url)
+            if ig_res.get('success'):
+                return ig_res
+        if 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url:
+            fb_res = scrape_facebook_fallback(clean_target_url)
+            if fb_res.get('success'):
+                return fb_res
         if 'tiktok.com' in clean_target_url or 'douyin.com' in clean_target_url:
             tt_res = scrape_tiktok_fallback(clean_target_url)
             if tt_res.get('success'):
