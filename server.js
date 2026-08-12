@@ -328,8 +328,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
         args.push('--js-runtimes', 'node');
-        args.push('--geo-bypass');
-        args.push('--geo-bypass-country', 'TW');
+        args.push('--extractor-args', 'youtube:player_client=android_vr,web');
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
@@ -404,7 +403,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             }
 
             if (!res.headersSent) {
-                res.status(500).send(`ytdlp_error (${code}): ${stderrData || 'No stderr output'}`);
+                res.status(500).send('影片下載失敗，請確認該影片連結是否公開。');
             } else if (!res.writableEnded) {
                 res.end();
             }
