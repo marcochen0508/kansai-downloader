@@ -403,7 +403,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             }
 
             if (!res.headersSent) {
-                res.status(500).send('影片下載失敗，請確認該影片連結是否公開。');
+                res.status(500).send(`ytdlp_error (${code}): ${stderrData || 'No stderr'}`);
             } else if (!res.writableEnded) {
                 res.end();
             }
