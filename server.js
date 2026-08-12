@@ -346,25 +346,18 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         args.push('--cookies', cookieFile);
     }
 
-    // Flush headers IMMEDIATELY so Render proxy & browser don't time out during 30s yt-dlp processing
-    setContentDisposition(res, safeFilename);
-    res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.writeHead(200);
-
-    // Keep Render proxy connection alive with periodic heartbeat
-    const heartbeatTimer = setInterval(() => {
-        if (!res.writableEnded) {
-            res.write('');
-        }
-    }, 3000);
+    args.push('--concurrent-fragments', '4');
 
     const pythonCmd = getPythonCmd();
     const ytdlp = spawn(pythonCmd, ['-m', 'yt_dlp', ...args]);
 
+    let stderrData = '';
+    ytdlp.stderr.on('data', (d) => {
+        stderrData += d.toString();
+    });
+
     let cleanedUp = false;
     const cleanup = () => {
-        clearInterval(heartbeatTimer);
         if (cleanedUp) return;
         cleanedUp = true;
         if (fs.existsSync(tempFilePath)) {
@@ -375,12 +368,21 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     ytdlp.on('error', (err) => {
         console.error('ytdlp spawn error:', err);
         cleanup();
-        if (!res.writableEnded) res.end();
+        if (!res.headersSent) {
+            res.status(500).send('影片下載處理錯誤');
+        } else if (!res.writableEnded) {
+            res.end();
+        }
     });
 
     ytdlp.on('close', (code) => {
-        clearInterval(heartbeatTimer);
         if (code === 0 && fs.existsSync(tempFilePath)) {
+            const stat = fs.statSync(tempFilePath);
+            setContentDisposition(res, safeFilename);
+            res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
+            res.setHeader('Content-Length', stat.size);
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+
             const stream = fs.createReadStream(tempFilePath);
             stream.pipe(res);
             stream.on('end', () => {
@@ -391,9 +393,13 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                 if (!res.writableEnded) res.end();
             });
         } else {
-            console.error('ytdlp exit code non-zero:', code);
+            console.error(`ytdlp exit code non-zero (${code}):`, stderrData);
             cleanup();
-            if (!res.writableEnded) res.end();
+            if (!res.headersSent) {
+                res.status(500).send('影片下載失敗，請確認該影片連結是否公開。');
+            } else if (!res.writableEnded) {
+                res.end();
+            }
         }
     });
 
