@@ -328,10 +328,6 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
         args.push('--js-runtimes', 'node');
-        const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
-        if (fs.existsSync(ytCookieFile)) {
-            args.push('--cookies', ytCookieFile);
-        }
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
