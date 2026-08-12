@@ -108,47 +108,51 @@ function setContentDisposition(res, filename) {
 
 // API: Download Handler with yt-dlp Video+Audio Merge & Headers Proxy
 app.get('/api/download', async (req, res) => {
-    const { url, filename, type, webpageUrl } = req.query;
-    const targetUrl = webpageUrl || url;
-    if (!targetUrl) {
-        return res.status(400).send('缺少下載連結');
+    const { url, filename, type, webpageUrl, formatId: rawFormatId } = req.query;
+    const formatId = rawFormatId || '';
+
+    // Prioritize real webpage URL over raw CDN stream URL (googlevideo.com) for yt-dlp extraction
+    let targetWebpageUrl = webpageUrl || '';
+    if (!targetWebpageUrl && url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('instagram.com') || url.includes('facebook.com') || url.includes('bilibili.com'))) {
+        targetWebpageUrl = url;
     }
 
     const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
-    const formatId = req.query.formatId || '';  // must be declared before isFacebookDash
+    const mediaUrl = url || targetWebpageUrl;
 
-    const mediaUrl = url || webpageUrl;
-    const isYouTube = (webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be'))) || (mediaUrl && mediaUrl.includes('googlevideo.com'));
-    const isBilibili = (webpageUrl && (webpageUrl.includes('bilibili.com') || webpageUrl.includes('b23.tv'))) || (mediaUrl && mediaUrl.includes('.m4s'));
-    // Instagram uses yt-dlp because IG CDN links expire quickly and require fresh extraction
-    // Facebook CDN progressive MP4 (formatId='direct') streams directly; DASH video-only needs yt-dlp merge
-    const isInstagram = webpageUrl && (webpageUrl.includes('instagram.com') || webpageUrl.includes('instagr.am'));
-    const isFacebookDash = webpageUrl &&
-        (webpageUrl.includes('facebook.com') || webpageUrl.includes('fb.watch') || webpageUrl.includes('fb.com')) &&
-        formatId !== 'direct';  // Facebook DASH video-only (not a progressive/direct format)
+    if (!mediaUrl && !targetWebpageUrl) {
+        return res.status(400).send('缺少下載連結');
+    }
 
-    // Route platforms requiring audio+video merging or fresh yt-dlp extraction through yt-dlp
-    const requiresYtdlpMerge = isYouTube || isBilibili || isInstagram || isFacebookDash;
+    const isYouTube = (targetWebpageUrl && (targetWebpageUrl.includes('youtube.com') || targetWebpageUrl.includes('youtu.be'))) || (mediaUrl && mediaUrl.includes('googlevideo.com'));
+    const isBilibili = (targetWebpageUrl && (targetWebpageUrl.includes('bilibili.com') || targetWebpageUrl.includes('b23.tv'))) || (mediaUrl && mediaUrl.includes('.m4s'));
+    const isInstagram = targetWebpageUrl && (targetWebpageUrl.includes('instagram.com') || targetWebpageUrl.includes('instagr.am'));
+    const isFacebookDash = targetWebpageUrl &&
+        (targetWebpageUrl.includes('facebook.com') || targetWebpageUrl.includes('fb.watch') || targetWebpageUrl.includes('fb.com')) &&
+        formatId !== 'direct';
+
+    // Route platforms requiring audio+video merging or fresh backend stream extraction through yt-dlp
+    const requiresYtdlpProxy = isYouTube || isBilibili || isInstagram || isFacebookDash;
 
     if (type === 'image') {
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', 'image/jpeg');
-        return fetchAndStream(mediaUrl, res, webpageUrl, safeFilename);
+        return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    const isDirectStream = (formatId === 'direct' || type === 'audio') && !isYouTube;
+    const isDirectStream = (formatId === 'direct' || type === 'audio') && !isYouTube && !isBilibili && !isInstagram;
 
-    // Stream directly with redirect + yt-dlp fallback for all non-DASH video platforms (including Facebook)
-    if (isDirectStream || (type === 'video' && !requiresYtdlpMerge && mediaUrl.startsWith('http'))) {
+    // Direct stream only for progressive non-YouTube non-IG formats
+    if (isDirectStream || (type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http'))) {
         const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', contentType);
 
-        return fetchAndStream(mediaUrl, res, webpageUrl, safeFilename);
+        return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    // For YouTube, Bilibili, or Instagram — force yt-dlp with H.264/AAC codec selection
-    downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename, res, formatId, type, req);
+    // ALWAYS use backend yt-dlp proxy stream for YouTube, Bilibili, Instagram, and FB DASH
+    downloadViaYtdlp(mediaUrl, targetWebpageUrl, safeFilename, res, formatId, type, req);
 });
 
 // Proxy Image API to bypass Referer / Hotlink protection
@@ -270,7 +274,16 @@ try {
 }
 
 function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', type = 'video', req = null) {
-    const targetUrl = webpageUrl || url;
+    let targetUrl = webpageUrl || '';
+    if (!targetUrl || targetUrl.includes('googlevideo.com') || targetUrl.includes('.m4s')) {
+        if (url && !url.includes('googlevideo.com') && !url.includes('.m4s')) {
+            targetUrl = url;
+        }
+    }
+    if (!targetUrl) {
+        targetUrl = url;
+    }
+
     const isAudio = type === 'audio' || formatId === 'bestaudio';
     const ext = isAudio ? 'mp3' : 'mp4';
     const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`);

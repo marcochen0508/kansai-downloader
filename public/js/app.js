@@ -291,7 +291,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = 'download-item media-preview-item';
                 
                 const targetFilename = makeCleanFilename(data.title, vid.quality, vid.ext, platformId, currentSeqName);
-                const dlProxyUrl = `/api/download?url=${safeEncode(vid.url)}&filename=${safeEncode(targetFilename)}&type=video&webpageUrl=${safeEncode(vid.webpage_url || '')}&formatId=${safeEncode(vid.format_id || '')}`;
+                const itemWebpageUrl = vid.webpage_url || data.webpage_url || targetUrl;
+                const dlProxyUrl = `/api/download?filename=${safeEncode(targetFilename)}&type=video&webpageUrl=${safeEncode(itemWebpageUrl)}&formatId=${safeEncode(vid.format_id || '')}&url=${safeEncode(vid.url)}`;
 
                 const itemVidThumb = vid.thumbnail || data.thumbnail || '';
                 const proxiedVidThumb = getProxyImageUrl(itemVidThumb);
@@ -322,7 +323,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.className = 'download-item media-preview-item';
                 
                 const targetFilename = makeCleanFilename(data.title, aud.quality, aud.ext, platformId, currentSeqName);
-                const dlProxyUrl = `/api/download?url=${safeEncode(aud.url)}&filename=${safeEncode(targetFilename)}&type=audio&webpageUrl=${safeEncode(aud.webpage_url || '')}&formatId=${safeEncode(aud.format_id || '')}`;
+                const itemWebpageUrl = aud.webpage_url || data.webpage_url || targetUrl;
+                const dlProxyUrl = `/api/download?filename=${safeEncode(targetFilename)}&type=audio&webpageUrl=${safeEncode(itemWebpageUrl)}&formatId=${safeEncode(aud.format_id || '')}&url=${safeEncode(aud.url)}`;
 
                 item.innerHTML = `
                     <div class="item-media-left">
