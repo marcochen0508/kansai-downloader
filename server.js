@@ -328,6 +328,8 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
         args.push('--js-runtimes', 'node');
+        args.push('--geo-bypass');
+        args.push('--geo-bypass-country', 'TW');
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
@@ -391,8 +393,9 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             console.error(`ytdlp exit code non-zero (${code}):`, stderrData);
             cleanup();
 
-            // FALLBACK: If yt-dlp fails on Cloud IP (e.g. Regional Geo-block), fallback to streaming direct CDN url
-            if (url && url.startsWith('http') && !res.headersSent) {
+            // FALLBACK: If yt-dlp fails on Cloud IP, fallback to streaming direct CDN url (only if direct media link)
+            const isDirectCdnUrl = url && (url.includes('googlevideo.com') || url.includes('.mp4') || url.includes('.m4s') || url.includes('fbcdn') || url.includes('cdninstagram'));
+            if (isDirectCdnUrl && !res.headersSent) {
                 console.log('yt-dlp failed, falling back to direct stream via fetchAndStream for:', url);
                 const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
                 setContentDisposition(res, safeFilename);

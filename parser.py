@@ -1230,6 +1230,8 @@ def parse_url(target_url):
                 'no_warnings': True,
                 'skip_download': True,
                 'nocheckcertificate': True,
+                'geo_bypass': True,
+                'geo_bypass_country': 'TW',
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {'node': {}},
                 **_get_cookie_opts(clean_target_url),
