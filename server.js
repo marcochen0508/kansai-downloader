@@ -298,14 +298,14 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
         if (formatId.includes('+') || formatId.includes('/')) {
-            formatStr = `${formatId}/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best`;
+            formatStr = `${formatId}/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/18/b/best`;
         } else {
-            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best`;
+            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/18/b/best`;
         }
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
     } else {
-        formatStr = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best';
+        formatStr = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/18/b/best';
     }
 
     const args = [
