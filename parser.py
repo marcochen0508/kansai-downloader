@@ -1091,9 +1091,9 @@ def scrape_youtube_public_api(url):
             'height': 1080,
             'ext': 'mp4',
             'has_audio': True,
-            'size': '點擊下載',
-            'url': f"https://ssyoutube.com/watch?v={video_id}",
-            'format_id': 'direct',
+            'size': '高畫質',
+            'url': clean_url,
+            'format_id': 'bestvideo+bestaudio/best',
             'webpage_url': clean_url
         },
         {
@@ -1101,9 +1101,9 @@ def scrape_youtube_public_api(url):
             'height': 720,
             'ext': 'mp4',
             'has_audio': True,
-            'size': '快速下載',
-            'url': f"https://savefrom.net/1-youtube-video-{video_id}",
-            'format_id': 'direct',
+            'size': '標準畫質',
+            'url': clean_url,
+            'format_id': 'bestvideo[height<=720]+bestaudio/best[height<=720]',
             'webpage_url': clean_url
         }
     ]
@@ -1113,8 +1113,8 @@ def scrape_youtube_public_api(url):
             'quality': '提取 YouTube 影片原聲 (MP3 音檔)',
             'ext': 'mp3',
             'size': '音訊提取',
-            'url': f"https://yt5s.biz/zh-tw/youtube-to-mp3/{video_id}",
-            'format_id': 'direct',
+            'url': clean_url,
+            'format_id': 'bestaudio',
             'webpage_url': clean_url
         }
     ]

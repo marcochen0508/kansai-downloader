@@ -124,7 +124,8 @@ app.get('/api/download', async (req, res) => {
         return res.status(400).send('缺少下載連結');
     }
 
-    const isYouTube = (targetWebpageUrl && (targetWebpageUrl.includes('youtube.com') || targetWebpageUrl.includes('youtu.be'))) || (mediaUrl && mediaUrl.includes('googlevideo.com'));
+    const isYouTube = (targetWebpageUrl && (targetWebpageUrl.includes('youtube.com') || targetWebpageUrl.includes('youtu.be'))) ||
+                      (mediaUrl && (mediaUrl.includes('googlevideo.com') || mediaUrl.includes('youtube.com') || mediaUrl.includes('youtu.be') || mediaUrl.includes('ssyoutube.com')));
     const isBilibili = (targetWebpageUrl && (targetWebpageUrl.includes('bilibili.com') || targetWebpageUrl.includes('b23.tv'))) || (mediaUrl && mediaUrl.includes('.m4s'));
     const isInstagram = targetWebpageUrl && (targetWebpageUrl.includes('instagram.com') || targetWebpageUrl.includes('instagr.am'));
     const isFacebookDash = targetWebpageUrl &&
@@ -140,9 +141,9 @@ app.get('/api/download', async (req, res) => {
         return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    const isDirectStream = (formatId === 'direct' || type === 'audio') && !isYouTube && !isBilibili && !isInstagram;
+    const isDirectStream = (formatId === 'direct') && !isYouTube && !isBilibili && !isInstagram;
 
-    // Direct stream only for progressive non-YouTube non-IG formats
+    // Direct stream only for progressive non-YouTube non-IG non-Bilibili formats
     if (isDirectStream || (type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http'))) {
         const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
         setContentDisposition(res, safeFilename);
