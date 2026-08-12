@@ -283,7 +283,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
-        formatStr = `${formatId}+bestaudio/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
+        formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best';
     } else {
@@ -307,7 +307,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
         args.push('--js-runtimes', 'node');
-        args.push('--extractor-args', 'youtube:player_client=android,tvhtml5');
+        args.push('--extractor-args', 'youtube:player_client=android_vr,web,mweb');
         const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
         if (fs.existsSync(ytCookieFile)) {
             args.push('--cookies', ytCookieFile);

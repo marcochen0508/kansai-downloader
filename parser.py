@@ -1230,9 +1230,8 @@ def parse_url(target_url):
                 return yt_direct_res
 
             client_tiers = [
-                ['android', 'tvhtml5'],
-                ['android_vr', 'mweb'],
-                ['tv', 'android'],
+                ['android_vr', 'web', 'mweb'],
+                ['ios', 'web'],
                 ['web', 'mweb']
             ]
 
