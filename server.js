@@ -297,7 +297,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
-        formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
+        if (formatId.includes('+') || formatId.includes('/')) {
+            formatStr = `${formatId}/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
+        } else {
+            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
+        }
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best';
     } else {
@@ -315,6 +319,9 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     }
 
     if (ffmpegPath) {
+        if (fs.existsSync(ffmpegPath) && process.platform !== 'win32') {
+            try { fs.chmodSync(ffmpegPath, 0o755); } catch(e) {}
+        }
         args.push('--ffmpeg-location', ffmpegPath);
     }
 
