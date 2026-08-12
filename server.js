@@ -298,14 +298,14 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
         if (formatId.includes('+') || formatId.includes('/')) {
-            formatStr = `${formatId}/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
+            formatStr = `${formatId}/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best`;
         } else {
-            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[vcodec^=avc1]+bestaudio/bestvideo+bestaudio/best`;
+            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best`;
         }
     } else if (isInstagramUrl || isFacebookUrl) {
-        formatStr = 'best[vcodec^=avc1][acodec!=none]/best[ext=mp4][acodec!=none]/bestvideo[vcodec^=avc1]+bestaudio/best';
+        formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
     } else {
-        formatStr = 'bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc1]+bestaudio/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
+        formatStr = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best';
     }
 
     const args = [
