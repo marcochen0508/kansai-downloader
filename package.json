@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "postinstall": "python3 -m pip install -U -r requirements.txt || pip install -U -r requirements.txt || true; chmod +x node_modules/ffmpeg-static/ffmpeg || true"
+    "postinstall": "python3 -m pip install -U yt-dlp -r requirements.txt || pip install -U yt-dlp -r requirements.txt || true; chmod +x node_modules/ffmpeg-static/ffmpeg || true"
   },
   "dependencies": {
     "cors": "^2.8.5",
