@@ -391,7 +391,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             console.error(`ytdlp exit code non-zero (${code}):`, stderrData);
             cleanup();
             if (!res.headersSent) {
-                res.status(500).send('影片下載失敗，請確認該影片連結是否公開。');
+                res.status(500).send(`影片下載失敗 (${code}): ${stderrData || '無詳細錯誤訊息'}`);
             } else if (!res.writableEnded) {
                 res.end();
             }
