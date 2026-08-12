@@ -404,7 +404,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             }
 
             if (!res.headersSent) {
-                res.status(500).send('影片下載失敗，該影片可能設有地區播放限制。');
+                res.status(500).send(`ytdlp_error (${code}): ${stderrData || 'No stderr output'}`);
             } else if (!res.writableEnded) {
                 res.end();
             }
