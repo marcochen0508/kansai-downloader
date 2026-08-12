@@ -328,7 +328,6 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
         args.push('--js-runtimes', 'node');
-        args.push('--extractor-args', 'youtube:player_client=android_vr,web,mweb');
         const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
         if (fs.existsSync(ytCookieFile)) {
             args.push('--cookies', ytCookieFile);

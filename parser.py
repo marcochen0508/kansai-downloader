@@ -1225,42 +1225,29 @@ def parse_url(target_url):
         is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
 
         if is_yt_url:
-            yt_direct_res = scrape_youtube_direct(clean_target_url)
-            if yt_direct_res.get('success'):
-                return yt_direct_res
-
-            client_tiers = [
-                ['android_vr', 'web', 'mweb'],
-                ['ios', 'web'],
-                ['web', 'mweb']
-            ]
-
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'skip_download': True,
+                'nocheckcertificate': True,
+                'remote_components': ['ejs:github'],
+                'js_runtimes': {'node': {}},
+                **_get_cookie_opts(clean_target_url),
+            }
             info = None
-            last_err = None
-            for clients in client_tiers:
-                try:
-                    ydl_opts = {
-                        'quiet': True,
-                        'no_warnings': True,
-                        'skip_download': True,
-                        'allow_unplayable_formats': True,
-                        'nocheckcertificate': True,
-                        'extractor_args': {'youtube': {'player_client': clients}},
-                        **_get_cookie_opts(clean_target_url),
-                    }
-                    with YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(clean_target_url, download=False)
-                        if info:
-                            break
-                except Exception as e:
-                    last_err = e
+            try:
+                with YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(clean_target_url, download=False)
+            except Exception:
+                info = None
 
             if not info:
+                yt_direct_res = scrape_youtube_direct(clean_target_url)
+                if yt_direct_res.get('success'):
+                    return yt_direct_res
                 yt_pub_res = scrape_youtube_public_api(clean_target_url)
                 if yt_pub_res.get('success'):
                     return yt_pub_res
-                if last_err:
-                    raise last_err
         else:
             ydl_opts = {
                 'quiet': True,
