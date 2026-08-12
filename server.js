@@ -390,8 +390,18 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         } else {
             console.error(`ytdlp exit code non-zero (${code}):`, stderrData);
             cleanup();
+
+            // FALLBACK: If yt-dlp fails on Cloud IP (e.g. Regional Geo-block), fallback to streaming direct CDN url
+            if (url && url.startsWith('http') && !res.headersSent) {
+                console.log('yt-dlp failed, falling back to direct stream via fetchAndStream for:', url);
+                const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
+                setContentDisposition(res, safeFilename);
+                res.setHeader('Content-Type', contentType);
+                return fetchAndStream(url, res, webpageUrl, safeFilename);
+            }
+
             if (!res.headersSent) {
-                res.status(500).send(`影片下載失敗 (${code}): ${stderrData || '無詳細錯誤訊息'}`);
+                res.status(500).send('影片下載失敗，該影片可能設有地區播放限制。');
             } else if (!res.writableEnded) {
                 res.end();
             }
