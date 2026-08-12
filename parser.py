@@ -1230,7 +1230,7 @@ def parse_url(target_url):
                 'no_warnings': True,
                 'skip_download': True,
                 'nocheckcertificate': True,
-                'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
+                'extractor_args': {'youtube': {'player_client': ['android', 'tvhtml5']}},
                 'remote_components': ['ejs:github'],
                 'js_runtimes': {'node': {}},
                 **_get_cookie_opts(clean_target_url),
