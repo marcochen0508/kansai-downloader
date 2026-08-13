@@ -311,7 +311,8 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     const isAudio = type === 'audio' || formatId === 'bestaudio';
     const ext = isAudio ? 'mp3' : 'mp4';
-    const tempFilePath = path.join(tempDir, `temp_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`);
+    const filePrefix = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const tempFilePath = path.join(tempDir, `${filePrefix}.${ext}`);
 
     const isYouTubeUrl = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be') || (url && url.includes('googlevideo.com'));
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
@@ -335,7 +336,9 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const args = [
         targetUrl,
         '-f', formatStr,
-        '-o', tempFilePath
+        '-o', tempFilePath,
+        '--no-playlist',
+        '--socket-timeout', '20'
     ];
 
     if (!isAudio) {
@@ -352,7 +355,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
         args.push('--js-runtimes', 'node');
-        args.push('--extractor-args', 'youtube:player_client=default,-tv');
+        args.push('--extractor-args', 'youtube:player_client=ios,android,mweb,web');
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
@@ -386,9 +389,26 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const cleanup = () => {
         if (cleanedUp) return;
         cleanedUp = true;
-        if (fs.existsSync(tempFilePath)) {
-            fs.unlink(tempFilePath, () => {});
-        }
+        try {
+            if (fs.existsSync(tempDir)) {
+                const files = fs.readdirSync(tempDir);
+                files.forEach((f) => {
+                    if (f.startsWith(filePrefix)) {
+                        fs.unlink(path.join(tempDir, f), () => {});
+                    }
+                });
+            }
+        } catch (e) {}
+    };
+
+    const findOutputFile = () => {
+        if (fs.existsSync(tempFilePath)) return tempFilePath;
+        try {
+            const files = fs.readdirSync(tempDir);
+            const found = files.find(f => f.startsWith(filePrefix) && !f.endsWith('.part') && !f.endsWith('.ytdl'));
+            if (found) return path.join(tempDir, found);
+        } catch (e) {}
+        return null;
     };
 
     ytdlp.on('error', (err) => {
@@ -402,14 +422,15 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     });
 
     ytdlp.on('close', (code) => {
-        if (code === 0 && fs.existsSync(tempFilePath)) {
-            const stat = fs.statSync(tempFilePath);
+        const outputFile = findOutputFile();
+        if (code === 0 && outputFile) {
+            const stat = fs.statSync(outputFile);
             setContentDisposition(res, safeFilename);
             res.setHeader('Content-Type', isAudio ? 'audio/mpeg' : 'video/mp4');
             res.setHeader('Content-Length', stat.size);
             res.setHeader('X-Content-Type-Options', 'nosniff');
 
-            const stream = fs.createReadStream(tempFilePath);
+            const stream = fs.createReadStream(outputFile);
             stream.pipe(res);
             stream.on('end', () => {
                 cleanup();
@@ -419,7 +440,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                 if (!res.writableEnded) res.end();
             });
         } else {
-            console.error(`ytdlp exit code non-zero (${code}):`, stderrData);
+            console.error(`ytdlp exit code (${code}), stderr:`, stderrData);
             cleanup();
 
             // FALLBACK: If yt-dlp fails on Cloud IP, fallback to streaming direct CDN url (only if direct media link)
