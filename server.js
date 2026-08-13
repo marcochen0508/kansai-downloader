@@ -352,14 +352,17 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
     const isFacebookUrl = targetUrl.includes('facebook') || targetUrl.includes('fb.watch') || targetUrl.includes('fbcdn');
 
-    let formatStr;
-    const hasPoToken = !!process.env.YT_PO_TOKEN;
-    // For YouTube without PO Token: always use progressive format 18 (360p)
-    // This is the only format that works reliably from cloud IPs via android_vr client
-    const useYtFallback = isYouTubeUrl && !hasPoToken;
+    // YouTube mode detection: require BOTH PO Token AND Visitor Data to enable web client mode
+    const poToken = process.env.YT_PO_TOKEN;
+    const visitorData = process.env.YT_VISITOR_DATA;
+    const hasFullPoTokenConfig = !!(poToken && visitorData);
+    // useYtFallback = true means: use android_vr + format 18 (no PO Token)
+    const useYtFallback = isYouTubeUrl && !hasFullPoTokenConfig;
 
+    let formatStr;
     if (useYtFallback) {
-        formatStr = '18'; // progressive mp4 (360p with audio) - no DASH merging needed
+        // android_vr + progressive 360p: the only approach that reliably works from cloud IPs
+        formatStr = '18';
     } else if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
@@ -371,7 +374,6 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
     } else {
-        // Default to progressive or 720p fallback to avoid >512MB memory spikes during ffmpeg multiplexing on cloud free instances
         formatStr = '18/bestvideo[height<=720]+bestaudio/bestvideo[height<=1080]+bestaudio/b/best';
     }
 
@@ -404,47 +406,33 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         args.push('--ffmpeg-location', ffmpegPath);
     }
 
-    if (isYouTubeUrl) {
-        // Pass the FULL absolute path to node so yt-dlp can find it in any cloud environment
-        const nodeRuntimeArg = `node:${NODE_EXEC_PATH}`;
-        args.push('--js-runtimes', nodeRuntimeArg);
-
-        const poToken = process.env.YT_PO_TOKEN;
-        const visitorData = process.env.YT_VISITOR_DATA;
-
-        if (poToken && visitorData) {
-            // PO Token mode: bypasses cloud IP block. Token from user's browser DevTools.
-            console.log('[YT] Using PO Token mode (web client + po_token)');
-            args.push('--extractor-args',
-                `youtube:po_token=web+${visitorData}:${poToken};player_client=web`);
-        } else {
-            // Fallback: android_vr client (no PO Token required, but may fail on blocked cloud IPs)
-            console.log('[YT] Using android_vr fallback (no PO Token set)');
-            args.push('--extractor-args', 'youtube:player_client=android_vr');
-        }
+    // Platform-specific extractor args
+    if (useYtFallback) {
+        console.log('[YT] android_vr fallback (format 18, no PO Token)');
+        args.push('--extractor-args', 'youtube:player_client=android_vr');
+        args.push('--no-cookies');
+    } else if (isYouTubeUrl && hasFullPoTokenConfig) {
+        console.log('[YT] PO Token mode (web client + po_token)');
+        args.push('--extractor-args', `youtube:po_token=web+${visitorData}:${poToken};player_client=web`);
+        args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
+        // Inject cookies only for web client + PO Token mode
+        const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
+        if (fs.existsSync(ytCookieFile)) args.push('--cookies', ytCookieFile);
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
         args.push('--add-header', 'Referer:https://www.instagram.com/');
     }
 
-    // Inject Meta (IG/Threads/FB) cookie file to bypass IP rate-limit blocks
+    // Inject Meta (IG/Threads/FB) cookie file
     const isMeta = targetUrl.includes('instagram') || targetUrl.includes('threads') || targetUrl.includes('facebook') || targetUrl.includes('fb.watch');
     const cookieFile = path.join(__dirname, 'ig_cookies.txt');
     if (isMeta && fs.existsSync(cookieFile)) {
         args.push('--cookies', cookieFile);
     }
 
-    // Inject YouTube cookie file to bypass bot verification on Cloud IP
-    // Note: Only inject YouTube cookies if PO Token is set (web client).
-    // For android_vr, passing cookies often triggers "Sign in to confirm" blocks on cloud IPs.
-    const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
-    if (isYouTubeUrl && fs.existsSync(ytCookieFile) && process.env.YT_PO_TOKEN) {
-        args.push('--cookies', ytCookieFile);
-    }
-
-    // Only enable concurrent fragments for non-YouTube (DASH) downloads
-    if (!isYouTubeUrl || hasPoToken) {
+    // Concurrent fragments only for DASH (non-YouTube fallback)
+    if (!useYtFallback) {
         args.push('--concurrent-fragments', '4');
     }
 
