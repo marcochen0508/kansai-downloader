@@ -389,6 +389,8 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (useYtFallback) {
         // Format 18 is progressive (video+audio combined) - no merging or extraction needed
         // Just download as-is; it's already a complete mp4
+        // Explicitly disable cookies to ensure android_vr runs in clean unauthenticated mode
+        args.push('--no-cookies');
     } else if (isAudio) {
         args.push('-x', '--audio-format', 'mp3');
     } else {
