@@ -520,7 +520,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                     const isYT = targetUrl && (targetUrl.includes('youtube') || targetUrl.includes('youtu.be'));
                     const isIG = targetUrl && (targetUrl.includes('instagram') || targetUrl.includes('threads'));
                     const platform = isYT ? 'youtube' : isIG ? 'instagram' : 'general';
-                    return res.status(401).json({ error_type: 'cookie_expired', platform });
+                    return res.status(401).json({ error_type: 'cookie_expired', platform, raw_stderr: stderrData });
                 }
                 res.status(500).send(`ytdlp_error (${code}): ${stderrData || 'No stderr'}`);
             } else if (!res.writableEnded) {
