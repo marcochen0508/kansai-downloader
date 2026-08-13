@@ -560,11 +560,14 @@ app.get('/api/debug-yt', async (req, res) => {
         hasYTCookies = content.includes('youtube.com');
     }
 
+    const testFile = path.join(tempDir, `debug_test_${Date.now()}.mp4`);
     const args = [
         '-m', 'yt_dlp',
         'https://www.youtube.com/shorts/O-dHcRAej_A',
-        '--skip-download', '--print', 'title',
+        '-f', '18', // Test downloading format 18 (progressive mp4)
+        '-o', testFile,
         '--no-playlist',
+        '--max-filesize', '50k', // Stop early to save bandwidth/time
         `--js-runtimes`, `node:${NODE_EXEC_PATH}`,
         '--extractor-args', `youtube:player_client=${client}`,
     ];
@@ -577,7 +580,6 @@ app.get('/api/debug-yt', async (req, res) => {
     proc.stdout.on('data', d => stdout += d.toString());
     proc.stderr.on('data', d => stderr += d.toString());
     
-    // Set a 30s timeout so the API doesn't hang forever if the process is stuck
     const timeout = setTimeout(() => {
         proc.kill();
         res.json({
@@ -589,16 +591,17 @@ app.get('/api/debug-yt', async (req, res) => {
 
     proc.on('close', code => {
         clearTimeout(timeout);
+        const downloadedExists = fs.existsSync(testFile);
+        if (downloadedExists) {
+            try { fs.unlinkSync(testFile); } catch(e) {}
+        }
         res.json({
             exit_code: code,
+            downloaded: downloadedExists,
             stdout: stdout.trim(),
             stderr: stderr.slice(-2000),
             client: client,
-            cookie_file_exists: cookieExists,
             cookie_used: useCookie && cookieExists,
-            cookie_lines: cookieLines,
-            has_yt_cookies: hasYTCookies,
-            node_path: NODE_EXEC_PATH,
         });
     });
     
