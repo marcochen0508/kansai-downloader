@@ -357,7 +357,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     if (isYouTubeUrl && !hasPoToken) {
         // Fallback to progressive format 18 (360p) to avoid DASH format blocks on cloud IPs
-        formatStr = '18/best';
+        formatStr = '18';
     } else if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
