@@ -34,7 +34,7 @@ def _get_cookie_opts(url=''):
                     return {'cookiefile': _IG_COOKIE_FILE}
         except Exception:
             pass
-    if is_yt and os.path.isfile(_YT_COOKIE_FILE):
+    if is_yt and os.path.isfile(_YT_COOKIE_FILE) and os.environ.get('YT_PO_TOKEN'):
         return {'cookiefile': _YT_COOKIE_FILE}
     return {}
 
@@ -1232,13 +1232,15 @@ def parse_url(target_url):
             _node_bin = (_shutil.which('node') or
                          _shutil.which('nodejs') or
                          next((p for p in _common_node_paths if _os.path.isfile(p)), 'node'))
+            po_token = os.environ.get('YT_PO_TOKEN')
+            player_client = ['web'] if po_token else ['android_vr']
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
                 'skip_download': True,
                 'nocheckcertificate': True,
-                # Use web client only (most reliable; ios/android need GVS PO Token; tv hits SABR)
-                'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}},
+                # Use web client only if PO token is set; otherwise fallback to android_vr to bypass IP block
+                'extractor_args': {'youtube': {'player_client': player_client}},
                 # Pass absolute node path so yt-dlp can solve JS challenges in cloud env
                 'js_runtimes': {'node': {'path': _node_bin}},
                 **_get_cookie_opts(clean_target_url),

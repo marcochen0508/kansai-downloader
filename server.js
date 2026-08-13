@@ -422,8 +422,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     }
 
     // Inject YouTube cookie file to bypass bot verification on Cloud IP
+    // Note: Only inject YouTube cookies if PO Token is set (web client).
+    // For android_vr, passing cookies often triggers "Sign in to confirm" blocks on cloud IPs.
     const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
-    if (isYouTubeUrl && fs.existsSync(ytCookieFile)) {
+    if (isYouTubeUrl && fs.existsSync(ytCookieFile) && process.env.YT_PO_TOKEN) {
         args.push('--cookies', ytCookieFile);
     }
 
