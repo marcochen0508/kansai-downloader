@@ -496,6 +496,19 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             }
 
             if (!res.headersSent) {
+                // Detect cookie expiration / bot-check errors → return 401 JSON for frontend to handle
+                const stderrLower = stderrData.toLowerCase();
+                const isCookieExpired = stderrLower.includes('sign in to confirm') ||
+                                        stderrLower.includes('bot') ||
+                                        stderrLower.includes('confirm your age') ||
+                                        stderrLower.includes('login required') ||
+                                        stderrLower.includes('use --cookies');
+                if (isCookieExpired) {
+                    const isYT = targetUrl && (targetUrl.includes('youtube') || targetUrl.includes('youtu.be'));
+                    const isIG = targetUrl && (targetUrl.includes('instagram') || targetUrl.includes('threads'));
+                    const platform = isYT ? 'youtube' : isIG ? 'instagram' : 'general';
+                    return res.status(401).json({ error_type: 'cookie_expired', platform });
+                }
                 res.status(500).send(`ytdlp_error (${code}): ${stderrData || 'No stderr'}`);
             } else if (!res.writableEnded) {
                 res.end();

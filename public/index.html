@@ -247,6 +247,29 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=20260812_v4"></script>
+    <script src="js/app.js?v=20260813_v5"></script>
+
+    <!-- Cookie Expired Modal -->
+    <div class="cookie-expired-overlay" id="cookieExpiredOverlay" style="display:none;">
+        <div class="cookie-expired-card">
+            <div class="cookie-expired-icon">🔐</div>
+            <h3 class="cookie-expired-title">下載暫時無法使用</h3>
+            <p class="cookie-expired-desc" id="cookieExpiredDesc">
+                系統的 YouTube 授權憑證已過期，需要管理員更新才能繼續下載。<br>
+                這是正常的例行維護，通常幾分鐘內即可恢復。
+            </p>
+            <div class="cookie-expired-actions">
+                <a href="https://line.me/ti/g2/YOUR_GROUP_ID" target="_blank" rel="noopener" class="btn-notify-admin" id="btnNotifyAdmin">
+                    <i class="fa-brands fa-line"></i> 通知管理員處理
+                </a>
+                <button type="button" class="btn-cookie-close" id="btnCookieClose">
+                    我知道了
+                </button>
+            </div>
+            <p class="cookie-expired-note">
+                <i class="fa-solid fa-clock"></i> 管理員更新後即可自動恢復，無需重新整理頁面。
+            </p>
+        </div>
+    </div>
 </body>
 </html>

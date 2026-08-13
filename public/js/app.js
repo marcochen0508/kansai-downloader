@@ -58,6 +58,82 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ── Cookie Expired Modal ──────────────────────────────────────────────
+    const cookieExpiredOverlay = document.getElementById('cookieExpiredOverlay');
+    const cookieExpiredDesc   = document.getElementById('cookieExpiredDesc');
+    const btnCookieClose      = document.getElementById('btnCookieClose');
+
+    const PLATFORM_COOKIE_MSG = {
+        youtube:   'YouTube 授權憑證已過期，需要管理員重新更新才能繼續下載 YouTube 影片。\n這是正常的例行維護，請通知管理員處理，謝謝！',
+        instagram: 'Instagram 授權憑證已過期，需要管理員重新更新才能繼續下載 IG 影片。\n這是正常的例行維護，請通知管理員處理，謝謝！',
+        general:   '系統授權憑證已過期，需要管理員重新更新才能繼續下載。\n請通知管理員處理，謝謝！'
+    };
+
+    function showCookieExpiredModal(platform) {
+        if (!cookieExpiredOverlay) return;
+        const msg = PLATFORM_COOKIE_MSG[platform] || PLATFORM_COOKIE_MSG.general;
+        const lines = msg.split('\n');
+        if (cookieExpiredDesc) {
+            cookieExpiredDesc.innerHTML = lines.map(l => `<span>${l}</span>`).join('<br>');
+        }
+        cookieExpiredOverlay.style.display = 'flex';
+    }
+
+    if (btnCookieClose) {
+        btnCookieClose.addEventListener('click', () => {
+            if (cookieExpiredOverlay) cookieExpiredOverlay.style.display = 'none';
+        });
+    }
+    if (cookieExpiredOverlay) {
+        cookieExpiredOverlay.addEventListener('click', (e) => {
+            if (e.target === cookieExpiredOverlay) cookieExpiredOverlay.style.display = 'none';
+        });
+    }
+
+    // ── Fetch-based Download (intercepts cookie errors) ───────────────────
+    async function startFetchDownload(dlUrl, filename, btnEl) {
+        const origHTML = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 準備中...';
+            btnEl.style.pointerEvents = 'none';
+            btnEl.style.opacity = '0.7';
+        }
+        try {
+            const res = await fetch(dlUrl);
+            if (res.status === 401) {
+                // Cookie expired
+                let platform = 'general';
+                try { const j = await res.json(); platform = j.platform || 'general'; } catch(e) {}
+                showCookieExpiredModal(platform);
+                return;
+            }
+            if (!res.ok) {
+                const errText = await res.text();
+                showToast('下載失敗，請稍後再試。');
+                console.error('Download error:', errText);
+                return;
+            }
+            // Stream as blob and trigger save
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename || 'download.mp4';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 5000);
+        } catch (err) {
+            showToast('下載連線失敗，請確認網路後再試。');
+            console.error('Fetch download error:', err);
+        } finally {
+            if (btnEl) {
+                btnEl.innerHTML = origHTML;
+                btnEl.style.pointerEvents = '';
+                btnEl.style.opacity = '';
+            }
+        }
+    }
+
     // Global platform sequence counters (e.g. FB001, IG002, YT001)
     const platformCounters = {};
     const platformPrefixes = {
@@ -305,9 +381,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="item-name">${vid.ext.toUpperCase()} 影片 ${vid.size ? '(' + vid.size + ')' : ''}</span>
                         </div>
                     </div>
-                    <a href="${dlProxyUrl}" download="${targetFilename}" class="btn-dl">
+                    <button type="button" class="btn-dl" data-dl-url="${dlProxyUrl}" data-filename="${targetFilename}">
                         <i class="fa-solid fa-download"></i> 下載影片
-                    </a>
+                    </button>
                 `;
                 videoList.appendChild(item);
             });
@@ -334,9 +410,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="item-name">${aud.ext.toUpperCase()} 音訊檔 ${aud.size ? '(' + aud.size + ')' : ''}</span>
                         </div>
                     </div>
-                    <a href="${dlProxyUrl}" download="${targetFilename}" class="btn-dl" style="background-color: #8b5cf6;">
+                    <button type="button" class="btn-dl" style="background-color: #8b5cf6;" data-dl-url="${dlProxyUrl}" data-filename="${targetFilename}">
                         <i class="fa-solid fa-music"></i> 提取 MP3
-                    </a>
+                    </button>
                 `;
                 audioList.appendChild(item);
             });
@@ -381,6 +457,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
         resultCard.style.display = 'flex';
         resultCard.scrollIntoView({ behavior: 'smooth' });
+
+        // Bind fetch-based download to all btn-dl buttons (video & audio)
+        resultCard.querySelectorAll('button.btn-dl[data-dl-url]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                startFetchDownload(btn.dataset.dlUrl, btn.dataset.filename, btn);
+            });
+        });
+    }
+
+    async function startFetchDownload(url, filename, btn) {
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 準備下載...';
+
+        try {
+            const response = await fetch(url);
+            if (response.status === 401) {
+                // Cookie expired — show friendly modal
+                let platform = 'general';
+                try { const j = await response.clone().json(); platform = j.platform || 'general'; } catch(e) {}
+                showCookieExpiredModal(platform);
+                return;
+            }
+            if (!response.ok) throw new Error('下載請求失敗');
+
+            const blob = await response.blob();
+            const dlUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = dlUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(dlUrl);
+            showToast('開始下載！');
+        } catch (err) {
+            console.error(err);
+            showError('下載失敗，請稍後再試。');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
     }
 
     function showError(msg) {
