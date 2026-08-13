@@ -531,6 +531,47 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Debug endpoint: test yt-dlp directly on cloud and return exact stderr
+app.get('/api/debug-yt', async (req, res) => {
+    const pythonCmd = getPythonCmd();
+    const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
+    const cookieExists = fs.existsSync(ytCookieFile);
+    let cookieLines = 0;
+    let hasYTCookies = false;
+    if (cookieExists) {
+        const content = fs.readFileSync(ytCookieFile, 'utf-8');
+        cookieLines = content.split('\n').filter(l => l && !l.startsWith('#')).length;
+        hasYTCookies = content.includes('youtube.com');
+    }
+
+    const args = [
+        '-m', 'yt_dlp',
+        'https://www.youtube.com/shorts/O-dHcRAej_A',
+        '--skip-download', '--print', 'title',
+        '--no-playlist',
+        `--js-runtimes`, `node:${NODE_EXEC_PATH}`,
+        '--extractor-args', 'youtube:player_client=tv_embedded',
+    ];
+    if (cookieExists) args.push('--cookies', ytCookieFile);
+
+    const proc = spawn(pythonCmd, args);
+    let stdout = '', stderr = '';
+    proc.stdout.on('data', d => stdout += d.toString());
+    proc.stderr.on('data', d => stderr += d.toString());
+    proc.on('close', code => {
+        res.json({
+            exit_code: code,
+            stdout: stdout.trim(),
+            stderr: stderr.slice(-2000),
+            cookie_file_exists: cookieExists,
+            cookie_lines: cookieLines,
+            has_yt_cookies: hasYTCookies,
+            node_path: NODE_EXEC_PATH,
+        });
+    });
+    proc.on('error', err => res.json({ error: err.message }));
+});
+
 app.listen(PORT, () => {
     console.log(`🌸 社群影音與圖文下載系統已啟動：http://localhost:${PORT}`);
 
