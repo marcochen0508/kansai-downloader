@@ -19,6 +19,35 @@ if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }
 
+// Restore YouTube cookies from environment variable (base64 encoded) if not present on disk
+// This allows cloud deployments (Render/Zeabur) to have cookies without committing them to git
+const ytCookieFilePath = path.join(__dirname, 'yt_cookies.txt');
+const igCookieFilePath = path.join(__dirname, 'ig_cookies.txt');
+
+if (process.env.YT_COOKIES_B64 && !fs.existsSync(ytCookieFilePath)) {
+    try {
+        const decoded = Buffer.from(process.env.YT_COOKIES_B64, 'base64').toString('utf-8');
+        fs.writeFileSync(ytCookieFilePath, decoded, 'utf-8');
+        console.log('[Cookie] yt_cookies.txt restored from YT_COOKIES_B64 env var');
+    } catch (e) {
+        console.warn('[Cookie] Failed to restore yt_cookies.txt:', e.message);
+    }
+} else if (fs.existsSync(ytCookieFilePath)) {
+    console.log('[Cookie] yt_cookies.txt already exists on disk');
+} else {
+    console.warn('[Cookie] WARNING: yt_cookies.txt not found and YT_COOKIES_B64 not set - YouTube bot-check may fail');
+}
+
+if (process.env.IG_COOKIES_B64 && !fs.existsSync(igCookieFilePath)) {
+    try {
+        const decoded = Buffer.from(process.env.IG_COOKIES_B64, 'base64').toString('utf-8');
+        fs.writeFileSync(igCookieFilePath, decoded, 'utf-8');
+        console.log('[Cookie] ig_cookies.txt restored from IG_COOKIES_B64 env var');
+    } catch (e) {
+        console.warn('[Cookie] Failed to restore ig_cookies.txt:', e.message);
+    }
+}
+
 function getPythonCmd() {
     if (process.env.PYTHON) return process.env.PYTHON;
     return process.platform === 'win32' ? 'python' : 'python3';
