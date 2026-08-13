@@ -1225,14 +1225,22 @@ def parse_url(target_url):
         is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
 
         if is_yt_url:
+            import shutil as _shutil, os as _os
+            # Find the absolute node.js path for yt-dlp JS challenge solving
+            # Priority: shutil.which (respects PATH), then common cloud Linux paths, then just 'node'
+            _common_node_paths = ['/usr/local/bin/node', '/usr/bin/node', '/opt/node/bin/node']
+            _node_bin = (_shutil.which('node') or
+                         _shutil.which('nodejs') or
+                         next((p for p in _common_node_paths if _os.path.isfile(p)), 'node'))
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
                 'skip_download': True,
                 'nocheckcertificate': True,
-                'extractor_args': {'youtube': {'player_client': ['ios', 'android', 'mweb', 'web']}},
-                'remote_components': ['ejs:github'],
-                'js_runtimes': {'node': {}},
+                # Use web client only (most reliable; ios/android need GVS PO Token; tv hits SABR)
+                'extractor_args': {'youtube': {'player_client': ['web', 'mweb']}},
+                # Pass absolute node path so yt-dlp can solve JS challenges in cloud env
+                'js_runtimes': {'node': {'path': _node_bin}},
                 **_get_cookie_opts(clean_target_url),
             }
             info = None
@@ -1381,24 +1389,29 @@ def parse_url(target_url):
                 res_key = f"{height}"
                 if res_key not in seen_res:
                     seen_res.add(res_key)
+                    # For YouTube: never pass IP-bound CDN url; always use webpage_url so
+                    # the backend yt-dlp will re-extract a fresh stream for the correct server IP
+                    item_url = webpage_url if is_youtube else f_url
                     video_options.append({
                         'quality': res_label,
                         'height': height,
                         'ext': ext,
                         'has_audio': acodec != 'none',
                         'size': size_str,
-                        'url': f_url,
+                        'url': item_url,
                         'format_id': effective_format_id,
                         'webpage_url': webpage_url
                     })
 
             elif acodec != 'none' and vcodec == 'none':
                 abr = f.get('abr') or 128
+                # For YouTube: use webpage_url to avoid IP-bound CDN audio URLs
+                item_url = webpage_url if is_youtube else f_url
                 audio_options.append({
                     'quality': f"純音檔 ({int(abr)} kbps)",
                     'ext': ext,
                     'size': size_str,
-                    'url': f_url,
+                    'url': item_url,
                     'format_id': format_id,
                     'webpage_url': webpage_url
                 })
