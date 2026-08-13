@@ -323,14 +323,15 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
         if (formatId.includes('+') || formatId.includes('/')) {
-            formatStr = `${formatId}/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/18/b/best`;
+            formatStr = `${formatId}/bestvideo[height<=720]+bestaudio/18/b/best`;
         } else {
-            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/18/b/best`;
+            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[height<=720]+bestaudio/18/b/best`;
         }
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
     } else {
-        formatStr = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/18/b/best';
+        // Default to progressive or 720p fallback to avoid >512MB memory spikes during ffmpeg multiplexing on cloud free instances
+        formatStr = '18/bestvideo[height<=720]+bestaudio/bestvideo[height<=1080]+bestaudio/b/best';
     }
 
     const args = [
@@ -338,7 +339,9 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         '-f', formatStr,
         '-o', tempFilePath,
         '--no-playlist',
-        '--socket-timeout', '20'
+        '--socket-timeout', '20',
+        '--buffer-size', '16k',
+        '--concurrent-fragments', '1'
     ];
 
     if (!isAudio) {
