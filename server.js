@@ -339,9 +339,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         '-f', formatStr,
         '-o', tempFilePath,
         '--no-playlist',
-        '--socket-timeout', '20',
+        '--socket-timeout', '30',
         '--buffer-size', '16k',
-        '--concurrent-fragments', '1'
+        '--concurrent-fragments', '1',
+        '--no-check-certificates'
     ];
 
     if (!isAudio) {
@@ -356,9 +357,12 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     }
 
     if (isYouTubeUrl) {
-        args.push('--remote-components', 'ejs:github');
+        // Use node JS runtime for YouTube JS challenge solving (yt-dlp 2026+)
+        // Do NOT use --remote-components ejs:github (fetches from GitHub, fails on cloud restricted IPs)
         args.push('--js-runtimes', 'node');
-        args.push('--extractor-args', 'youtube:player_client=ios,android,mweb,web');
+        // web client: passes JS challenge via node runtime, most reliable
+        // mweb: lightweight fallback; ios/android require GVS PO Token; tv hits SABR experiment
+        args.push('--extractor-args', 'youtube:player_client=web,mweb');
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
