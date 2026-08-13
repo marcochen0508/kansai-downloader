@@ -354,10 +354,12 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     let formatStr;
     const hasPoToken = !!process.env.YT_PO_TOKEN;
+    // For YouTube without PO Token: always use progressive format 18 (360p)
+    // This is the only format that works reliably from cloud IPs via android_vr client
+    const useYtFallback = isYouTubeUrl && !hasPoToken;
 
-    if (isYouTubeUrl && !hasPoToken) {
-        // Fallback to progressive format 18 (360p) to avoid DASH format blocks on cloud IPs
-        formatStr = '18';
+    if (useYtFallback) {
+        formatStr = '18'; // progressive mp4 (360p with audio) - no DASH merging needed
     } else if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
@@ -384,8 +386,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         '--no-check-certificates'
     ];
 
-    if (isAudio) {
-        // Force audio extraction to MP3 so users get a clean audio file
+    if (useYtFallback) {
+        // Format 18 is progressive (video+audio combined) - no merging or extraction needed
+        // Just download as-is; it's already a complete mp4
+    } else if (isAudio) {
         args.push('-x', '--audio-format', 'mp3');
     } else {
         args.push('--merge-output-format', 'mp4');
@@ -437,7 +441,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         args.push('--cookies', ytCookieFile);
     }
 
-    args.push('--concurrent-fragments', '4');
+    // Only enable concurrent fragments for non-YouTube (DASH) downloads
+    if (!isYouTubeUrl || hasPoToken) {
+        args.push('--concurrent-fragments', '4');
+    }
 
     const pythonCmd = getPythonCmd();
     const ytdlp = spawn(pythonCmd, ['-m', 'yt_dlp', ...args]);
