@@ -353,7 +353,12 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const isFacebookUrl = targetUrl.includes('facebook') || targetUrl.includes('fb.watch') || targetUrl.includes('fbcdn');
 
     let formatStr;
-    if (isAudio) {
+    const hasPoToken = !!process.env.YT_PO_TOKEN;
+
+    if (isYouTubeUrl && !hasPoToken) {
+        // Fallback to progressive format 18 (360p) to avoid DASH format blocks on cloud IPs
+        formatStr = '18/best';
+    } else if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
         if (formatId.includes('+') || formatId.includes('/')) {
@@ -379,7 +384,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         '--no-check-certificates'
     ];
 
-    if (!isAudio) {
+    if (isAudio) {
+        // Force audio extraction to MP3 so users get a clean audio file
+        args.push('-x', '--audio-format', 'mp3');
+    } else {
         args.push('--merge-output-format', 'mp4');
     }
 
@@ -520,7 +528,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                     const isYT = targetUrl && (targetUrl.includes('youtube') || targetUrl.includes('youtu.be'));
                     const isIG = targetUrl && (targetUrl.includes('instagram') || targetUrl.includes('threads'));
                     const platform = isYT ? 'youtube' : isIG ? 'instagram' : 'general';
-                    return res.status(401).json({ error_type: 'cookie_expired', platform, raw_stderr: stderrData, constructed_args: args });
+                    return res.status(401).json({ error_type: 'cookie_expired', platform });
                 }
                 res.status(500).send(`ytdlp_error (${code}): ${stderrData || 'No stderr'}`);
             } else if (!res.writableEnded) {
