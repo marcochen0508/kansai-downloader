@@ -409,6 +409,9 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     // Platform-specific extractor args
     if (useYtFallback) {
         console.log('[YT] android_vr fallback (format 18, no PO Token)');
+        // --js-runtimes is CRITICAL: yt-dlp needs a JS runtime to solve YouTube's n-signature challenge.
+        // Without it, even android_vr client will fail with "Sign in to confirm" on cloud IPs.
+        args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
         args.push('--extractor-args', 'youtube:player_client=android_vr');
         args.push('--no-cookies');
     } else if (isYouTubeUrl && hasFullPoTokenConfig) {
