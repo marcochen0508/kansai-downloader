@@ -240,6 +240,12 @@ function fetchAndStream(mediaUrl, res, webpageUrl, safeFilename, redirectCount =
                         return fetchAndStream(nextUrl, res, webpageUrl, safeFilename, redirectCount + 1);
                     }
                     if (fbRes.statusCode >= 400) {
+                        if (mediaUrl.includes('googlevideo.com') || (webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be')))) {
+                            if (!res.headersSent) {
+                                return res.status(fbRes.statusCode).send(`下載失敗 (CDN 拒絕連線: ${fbRes.statusCode})`);
+                            }
+                            return;
+                        }
                         return downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
                     }
                     if (fbRes.headers['content-length']) {
@@ -247,7 +253,13 @@ function fetchAndStream(mediaUrl, res, webpageUrl, safeFilename, redirectCount =
                     }
                     res.setHeader('X-Content-Type-Options', 'nosniff');
                     fbRes.pipe(res);
-                }).on('error', () => {
+                }).on('error', (err) => {
+                    if (mediaUrl.includes('googlevideo.com') || (webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be')))) {
+                        if (!res.headersSent) {
+                            return res.status(500).send(`下載失敗 (CDN 連線錯誤: ${err.message})`);
+                        }
+                        return;
+                    }
                     downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
                 });
                 return;
@@ -259,10 +271,22 @@ function fetchAndStream(mediaUrl, res, webpageUrl, safeFilename, redirectCount =
             }
             res.setHeader('X-Content-Type-Options', 'nosniff');
             streamRes.pipe(res);
-        }).on('error', () => {
+        }).on('error', (err) => {
+            if (mediaUrl.includes('googlevideo.com') || (webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be')))) {
+                if (!res.headersSent) {
+                    return res.status(500).send(`下載失敗 (CDN 連線錯誤: ${err.message})`);
+                }
+                return;
+            }
             downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
         });
     } catch (e) {
+        if (mediaUrl.includes('googlevideo.com') || (webpageUrl && (webpageUrl.includes('youtube.com') || webpageUrl.includes('youtu.be')))) {
+            if (!res.headersSent) {
+                return res.status(500).send(`下載失敗 (錯誤: ${e.message})`);
+            }
+            return;
+        }
         downloadViaYtdlp(mediaUrl, webpageUrl, safeFilename || 'download.mp4', res);
     }
 }
@@ -328,7 +352,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     if (isYouTubeUrl) {
         args.push('--remote-components', 'ejs:github');
         args.push('--js-runtimes', 'node');
-        args.push('--extractor-args', 'youtube:player_client=tv,android');
+        args.push('--extractor-args', 'youtube:player_client=default,-tv');
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
@@ -340,6 +364,12 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const cookieFile = path.join(__dirname, 'ig_cookies.txt');
     if (isMeta && fs.existsSync(cookieFile)) {
         args.push('--cookies', cookieFile);
+    }
+
+    // Inject YouTube cookie file to bypass bot verification on Cloud IP
+    const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
+    if (isYouTubeUrl && fs.existsSync(ytCookieFile)) {
+        args.push('--cookies', ytCookieFile);
     }
 
     args.push('--concurrent-fragments', '4');
