@@ -24,13 +24,13 @@ if (!fs.existsSync(tempDir)) {
 const ytCookieFilePath = path.join(__dirname, 'yt_cookies.txt');
 const igCookieFilePath = path.join(__dirname, 'ig_cookies.txt');
 
-if (process.env.YT_COOKIES_B64 && !fs.existsSync(ytCookieFilePath)) {
+if (process.env.YT_COOKIES_B64) {
     try {
         const decoded = Buffer.from(process.env.YT_COOKIES_B64, 'base64').toString('utf-8');
         fs.writeFileSync(ytCookieFilePath, decoded, 'utf-8');
-        console.log('[Cookie] yt_cookies.txt restored from YT_COOKIES_B64 env var');
+        console.log('[Cookie] yt_cookies.txt written from YT_COOKIES_B64 env var');
     } catch (e) {
-        console.warn('[Cookie] Failed to restore yt_cookies.txt:', e.message);
+        console.warn('[Cookie] Failed to write yt_cookies.txt:', e.message);
     }
 } else if (fs.existsSync(ytCookieFilePath)) {
     console.log('[Cookie] yt_cookies.txt already exists on disk');
@@ -395,9 +395,8 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         // (Render/Zeabur do not add node to yt-dlp's PATH by default)
         const nodeRuntimeArg = `node:${NODE_EXEC_PATH}`;
         args.push('--js-runtimes', nodeRuntimeArg);
-        // web client: passes JS challenge via node runtime, most reliable
-        // mweb: lightweight fallback; ios/android require GVS PO Token; tv hits SABR experiment
-        args.push('--extractor-args', 'youtube:player_client=web,mweb');
+        // android_vr: does NOT require PO Token, works reliably on cloud IPs
+        args.push('--extractor-args', 'youtube:player_client=android_vr');
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
@@ -499,10 +498,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                 // Detect cookie expiration / bot-check errors → return 401 JSON for frontend to handle
                 const stderrLower = stderrData.toLowerCase();
                 const isCookieExpired = stderrLower.includes('sign in to confirm') ||
-                                        stderrLower.includes('bot') ||
+                                        stderrLower.includes('this video is only available') ||
                                         stderrLower.includes('confirm your age') ||
                                         stderrLower.includes('login required') ||
-                                        stderrLower.includes('use --cookies');
+                                        stderrLower.includes('use --cookies') ||
+                                        stderrLower.includes('cookies for this website');
                 if (isCookieExpired) {
                     const isYT = targetUrl && (targetUrl.includes('youtube') || targetUrl.includes('youtu.be'));
                     const isIG = targetUrl && (targetUrl.includes('instagram') || targetUrl.includes('threads'));
