@@ -392,11 +392,22 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     if (isYouTubeUrl) {
         // Pass the FULL absolute path to node so yt-dlp can find it in any cloud environment
-        // (Render/Zeabur do not add node to yt-dlp's PATH by default)
         const nodeRuntimeArg = `node:${NODE_EXEC_PATH}`;
         args.push('--js-runtimes', nodeRuntimeArg);
-        // android_vr: does NOT require PO Token, works reliably on cloud IPs
-        args.push('--extractor-args', 'youtube:player_client=android_vr');
+
+        const poToken = process.env.YT_PO_TOKEN;
+        const visitorData = process.env.YT_VISITOR_DATA;
+
+        if (poToken && visitorData) {
+            // PO Token mode: bypasses cloud IP block. Token from user's browser DevTools.
+            console.log('[YT] Using PO Token mode (web client + po_token)');
+            args.push('--extractor-args',
+                `youtube:po_token=web+${visitorData}:${poToken};player_client=web`);
+        } else {
+            // Fallback: android_vr client (no PO Token required, but may fail on blocked cloud IPs)
+            console.log('[YT] Using android_vr fallback (no PO Token set)');
+            args.push('--extractor-args', 'youtube:player_client=android_vr');
+        }
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
