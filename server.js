@@ -24,6 +24,11 @@ function getPythonCmd() {
     return process.platform === 'win32' ? 'python' : 'python3';
 }
 
+// Detect the current Node.js executable path for yt-dlp --js-runtimes
+// process.execPath is always correct regardless of cloud environment PATH
+const NODE_EXEC_PATH = process.execPath;
+console.log(`[yt-dlp] Node.js runtime path: ${NODE_EXEC_PATH}`);
+
 // API: Parse social media URL via parser.py
 app.post('/api/parse', (req, res) => {
     const { url } = req.body;
@@ -357,9 +362,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     }
 
     if (isYouTubeUrl) {
-        // Use node JS runtime for YouTube JS challenge solving (yt-dlp 2026+)
-        // Do NOT use --remote-components ejs:github (fetches from GitHub, fails on cloud restricted IPs)
-        args.push('--js-runtimes', 'node');
+        // Pass the FULL absolute path to node so yt-dlp can find it in any cloud environment
+        // (Render/Zeabur do not add node to yt-dlp's PATH by default)
+        const nodeRuntimeArg = `node:${NODE_EXEC_PATH}`;
+        args.push('--js-runtimes', nodeRuntimeArg);
         // web client: passes JS challenge via node runtime, most reliable
         // mweb: lightweight fallback; ios/android require GVS PO Token; tv hits SABR experiment
         args.push('--extractor-args', 'youtube:player_client=web,mweb');
