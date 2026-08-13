@@ -545,6 +545,9 @@ app.get('/api/health', (req, res) => {
 // Debug endpoint: test yt-dlp directly on cloud and return exact stderr
 app.get('/api/debug-yt', async (req, res) => {
     const pythonCmd = getPythonCmd();
+    const useCookie = req.query.cookie !== 'false';
+    const client = req.query.client || 'android_vr';
+    
     const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
     const cookieExists = fs.existsSync(ytCookieFile);
     let cookieLines = 0;
@@ -561,26 +564,46 @@ app.get('/api/debug-yt', async (req, res) => {
         '--skip-download', '--print', 'title',
         '--no-playlist',
         `--js-runtimes`, `node:${NODE_EXEC_PATH}`,
-        '--extractor-args', 'youtube:player_client=tv_embedded',
+        '--extractor-args', `youtube:player_client=${client}`,
     ];
-    if (cookieExists) args.push('--cookies', ytCookieFile);
+    if (useCookie && cookieExists) {
+        args.push('--cookies', ytCookieFile);
+    }
 
     const proc = spawn(pythonCmd, args);
     let stdout = '', stderr = '';
     proc.stdout.on('data', d => stdout += d.toString());
     proc.stderr.on('data', d => stderr += d.toString());
+    
+    // Set a 30s timeout so the API doesn't hang forever if the process is stuck
+    const timeout = setTimeout(() => {
+        proc.kill();
+        res.json({
+            error: 'Timeout after 30 seconds',
+            stdout: stdout.trim(),
+            stderr: stderr.slice(-2000),
+        });
+    }, 30000);
+
     proc.on('close', code => {
+        clearTimeout(timeout);
         res.json({
             exit_code: code,
             stdout: stdout.trim(),
             stderr: stderr.slice(-2000),
+            client: client,
             cookie_file_exists: cookieExists,
+            cookie_used: useCookie && cookieExists,
             cookie_lines: cookieLines,
             has_yt_cookies: hasYTCookies,
             node_path: NODE_EXEC_PATH,
         });
     });
-    proc.on('error', err => res.json({ error: err.message }));
+    
+    proc.on('error', err => {
+        clearTimeout(timeout);
+        res.json({ error: err.message });
+    });
 });
 
 app.listen(PORT, () => {
