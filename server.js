@@ -227,8 +227,6 @@ app.get('/api/debug-dl', (req, res) => {
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
     }
 
-    if (ffmpegPath) args.push('--ffmpeg-location', ffmpegPath);
-
     try {
         const pythonCmd = getPythonCmd();
         const child = spawn(pythonCmd, ['-m', 'yt_dlp', ...args]);
