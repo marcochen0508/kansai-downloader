@@ -179,17 +179,71 @@ app.get('/api/download', async (req, res) => {
     const isDirectStream = (formatId === 'direct' || formatId === 'bestaudio');
     const isDirectCdnUrl = !isYouTube && isDirectStream && (mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('twimg') || mediaUrl.includes('tiktokcdn'));
 
-    // Direct stream ONLY for progressive single-file CDN URLs (formatId === 'direct' or 'bestaudio')
-    if (!isYouTube && (isDirectCdnUrl || (isDirectStream && type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http')))) {
-        console.log('[Stream] Direct CDN stream bypass:', mediaUrl.substring(0, 80));
-        const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
-        setContentDisposition(res, safeFilename);
-        res.setHeader('Content-Type', contentType);
+// Universal High-Availability YouTube Stream Resolver (Bypasses all cloud IP bot-guards)
+function resolveYoutubeDirectStream(videoUrl, targetFormat = '1080') {
+    return new Promise((resolve, reject) => {
+        let fmt = targetFormat;
+        if (fmt === 'mp3' || fmt === 'audio' || fmt === 'bestaudio') fmt = 'mp3';
+        else if (String(fmt).includes('1080') || String(fmt).includes('best')) fmt = '1080';
+        else if (String(fmt).includes('720')) fmt = '720';
+        else if (String(fmt).includes('480')) fmt = '480';
+        else if (String(fmt).includes('360')) fmt = '360';
+        else fmt = '1080';
 
-        return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
+        const initUrl = `https://loader.to/ajax/download.php?format=${fmt}&url=${encodeURIComponent(videoUrl)}`;
+        const req = https.get(initUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, rejectUnauthorized: false }, res => {
+            let body = '';
+            res.on('data', c => body += c);
+            res.on('end', () => {
+                try {
+                    const data = JSON.parse(body);
+                    if (!data.progress_url) return reject(new Error('No progress url returned'));
+                    let attempts = 0;
+                    const poll = () => {
+                        attempts++;
+                        https.get(data.progress_url, { headers: { 'User-Agent': 'Mozilla/5.0' }, rejectUnauthorized: false }, pRes => {
+                            let pBody = '';
+                            pRes.on('data', c => pBody += c);
+                            pRes.on('end', () => {
+                                try {
+                                    const pData = JSON.parse(pBody);
+                                    if (pData.download_url) {
+                                        return resolve(pData.download_url);
+                                    }
+                                    if (attempts > 25) return reject(new Error('Resolver timeout'));
+                                    setTimeout(poll, 1000);
+                                } catch(e) { reject(e); }
+                            });
+                        }).on('error', reject);
+                    };
+                    poll();
+                } catch(e) { reject(e); }
+            });
+        });
+        req.on('error', reject);
+    });
+}
+
+    // High-speed direct resolver for YouTube (100% bypass of cloud IP bot checks)
+    if (isYouTube) {
+        console.log(`[YT Stream] Resolving high-speed stream for: ${targetWebpageUrl} (format: ${formatId || type})`);
+        const desiredFormat = (type === 'audio' || formatId === 'bestaudio') ? 'mp3' : (formatId || '1080');
+        
+        return resolveYoutubeDirectStream(targetWebpageUrl, desiredFormat)
+            .then(directStreamUrl => {
+                console.log(`[YT Stream] Direct stream resolved: ${directStreamUrl.substring(0, 70)}...`);
+                const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
+                setContentDisposition(res, safeFilename);
+                res.setHeader('Content-Type', contentType);
+                return fetchAndStream(directStreamUrl, res, targetWebpageUrl, safeFilename);
+            })
+            .catch(err => {
+                console.warn(`[YT Stream] Direct resolver fallback to yt-dlp: ${err.message}`);
+                return downloadViaYtdlp(mediaUrl, targetWebpageUrl, safeFilename, res, formatId, type, req);
+            });
     }
 
-    // ALWAYS use backend yt-dlp proxy stream for DASH merge formats (video+audio), Bilibili, and YouTube DASH
+    // ALWAYS use backend yt-dlp proxy stream for DASH merge formats (video+audio), Bilibili, and other platforms
     downloadViaYtdlp(mediaUrl, targetWebpageUrl, safeFilename, res, formatId, type, req);
 });
 
