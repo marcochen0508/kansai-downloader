@@ -1004,7 +1004,7 @@ def scrape_youtube_direct(url):
                             'has_audio': True,
                             'size': size_mb,
                             'url': u,
-                            'format_id': str(f.get('format_id', 'direct')),
+                            'format_id': 'direct',
                             'webpage_url': target_url
                         })
                     elif vcodec == 'none' and has_audio:
@@ -1470,8 +1470,8 @@ def parse_url(target_url):
                     res_label = f"{height}p"
 
                 effective_format_id = format_id
-                # Instagram / Facebook progressive (has audio): mark as 'direct' for fast CDN streaming
-                if (is_instagram or is_facebook) and acodec != 'none' and vcodec != 'none':
+                # Progressive formats (has audio and video): mark as 'direct' for fast CDN streaming
+                if (is_instagram or is_facebook or is_youtube) and acodec != 'none' and vcodec != 'none':
                     effective_format_id = 'direct'
                 # Instagram / Facebook DASH video-only: keep format_id as-is, server will use yt-dlp to merge
                 elif (is_instagram or is_facebook) and acodec == 'none':
