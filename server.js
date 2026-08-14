@@ -308,6 +308,8 @@ function fetchAndStream(mediaUrl, res, webpageUrl, safeFilename, redirectCount =
             referer = 'https://www.tiktok.com/';
         } else if (parsed.hostname.includes('facebook') || parsed.hostname.includes('fbcdn') || parsed.hostname.includes('fbsbx')) {
             referer = 'https://www.facebook.com/';
+        } else if (parsed.hostname.includes('instagram') || parsed.hostname.includes('cdninstagram')) {
+            referer = 'https://www.instagram.com/';
         }
 
         const options = {
