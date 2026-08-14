@@ -421,21 +421,20 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const useYtFallback = isYouTubeUrl && (!hasFullPoTokenConfig || forceFallback);
 
     let formatStr;
-    if (useYtFallback) {
-        // tv,android_vr,mweb fallback: support 1080p DASH and 360p progressive seamlessly from cloud IPs
-        formatStr = 'bestvideo[height<=1080]+bestaudio/18/b/best';
+    if (isYouTubeUrl) {
+        formatStr = '18/b/best';
     } else if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
         if (formatId.includes('+') || formatId.includes('/')) {
-            formatStr = `${formatId}/bestvideo[height<=1080]+bestaudio/18/b/best`;
+            formatStr = `${formatId}/18/b/best`;
         } else {
-            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[height<=1080]+bestaudio/18/b/best`;
+            formatStr = `${formatId}+bestaudio/${formatId}/18/b/best`;
         }
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
     } else {
-        formatStr = 'bestvideo[height<=1080]+bestaudio/18/b/best';
+        formatStr = 'b/best';
     }
 
     const args = [
