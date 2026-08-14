@@ -966,7 +966,7 @@ def scrape_youtube_direct(url):
     try:
         watch_url = f"https://www.youtube.com/watch?v={video_id}"
         cmd = [sys.executable, '-m', 'yt_dlp', watch_url, '--extractor-args', 'youtube:player_client=android_vr', '-j', '--no-cookies', '--no-playlist']
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        proc = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='ignore', timeout=15)
         if proc.returncode == 0 and proc.stdout:
             info = json.loads(proc.stdout)
             if info and info.get('formats'):
@@ -1319,46 +1319,16 @@ def parse_url(target_url):
         if fb_res.get('success'):
             return fb_res
 
+    if 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url:
+        yt_pub_res = scrape_youtube_direct(clean_target_url)
+        if yt_pub_res.get('success'):
+            return yt_pub_res
+
     try:
         is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
         is_yt_url = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
-
-        if is_yt_url:
-            import shutil as _shutil, os as _os
-            # Find the absolute node.js path for yt-dlp JS challenge solving
-            # Priority: shutil.which (respects PATH), then common cloud Linux paths, then just 'node'
-            _common_node_paths = ['/usr/local/bin/node', '/usr/bin/node', '/opt/node/bin/node']
-            _node_bin = (_shutil.which('node') or
-                         _shutil.which('nodejs') or
-                         next((p for p in _common_node_paths if _os.path.isfile(p)), 'node'))
-            po_token = os.environ.get('YT_PO_TOKEN')
-            player_client = ['web'] if po_token else ['android_vr']
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'skip_download': True,
-                'nocheckcertificate': True,
-                # Use web client only if PO token is set; otherwise fallback to android_vr to bypass IP block
-                'extractor_args': {'youtube': {'player_client': player_client}},
-                # Pass absolute node path so yt-dlp can solve JS challenges in cloud env
-                'js_runtimes': {'node': {'path': _node_bin}},
-                **_get_cookie_opts(clean_target_url),
-            }
-            info = None
-            try:
-                with YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(clean_target_url, download=False)
-            except Exception:
-                info = None
-
-            if not info:
-                yt_direct_res = scrape_youtube_direct(clean_target_url)
-                if yt_direct_res.get('success'):
-                    return yt_direct_res
-                yt_pub_res = scrape_youtube_public_api(clean_target_url)
-                if yt_pub_res.get('success'):
-                    return yt_pub_res
-        else:
+        info = None
+        if not is_yt_url:
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
