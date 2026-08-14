@@ -405,6 +405,13 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         targetUrl = url;
     }
 
+    if (targetUrl && targetUrl.includes('youtube.com/shorts/')) {
+        const m = targetUrl.match(/shorts\/([\w-]{11})/);
+        if (m) {
+            targetUrl = `https://www.youtube.com/watch?v=${m[1]}`;
+        }
+    }
+
     const isAudio = type === 'audio' || formatId === 'bestaudio';
     const ext = isAudio ? 'mp3' : 'mp4';
     const filePrefix = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
