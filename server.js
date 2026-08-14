@@ -364,20 +364,20 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     let formatStr;
     if (useYtFallback) {
-        // android_vr + progressive 360p / best: the approach that reliably works from cloud IPs
-        formatStr = '18/b/best';
+        // tv,android_vr,mweb fallback: support 1080p DASH and 360p progressive seamlessly from cloud IPs
+        formatStr = 'bestvideo[height<=1080]+bestaudio/18/b/best';
     } else if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
         if (formatId.includes('+') || formatId.includes('/')) {
-            formatStr = `${formatId}/bestvideo[height<=720]+bestaudio/18/b/best`;
+            formatStr = `${formatId}/bestvideo[height<=1080]+bestaudio/18/b/best`;
         } else {
-            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[height<=720]+bestaudio/18/b/best`;
+            formatStr = `${formatId}+bestaudio/${formatId}/bestvideo[height<=1080]+bestaudio/18/b/best`;
         }
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
     } else {
-        formatStr = '18/bestvideo[height<=720]+bestaudio/bestvideo[height<=1080]+bestaudio/b/best';
+        formatStr = 'bestvideo[height<=1080]+bestaudio/18/b/best';
     }
 
     const args = [
@@ -411,18 +411,15 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     // Platform-specific extractor args
     if (useYtFallback) {
-        console.log('[YT] android_vr fallback (format 18, clean unauthenticated mode)');
+        console.log('[YT] tv,android_vr,mweb fallback mode');
         // --js-runtimes is CRITICAL: yt-dlp needs a JS runtime to solve YouTube's n-signature challenge.
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
-        args.push('--extractor-args', 'youtube:player_client=android_vr');
+        args.push('--extractor-args', 'youtube:player_client=tv,android_vr,mweb');
         args.push('--no-cookies');
     } else if (isYouTubeUrl && hasFullPoTokenConfig) {
-        console.log('[YT] PO Token mode (web client + po_token)');
-        args.push('--extractor-args', `youtube:po_token=web+${visitorData}:${poToken};player_client=web`);
+        console.log('[YT] PO Token mode (tv,android_vr,web,mweb + po_token)');
+        args.push('--extractor-args', `youtube:po_token=web+${visitorData}:${poToken};player_client=tv,android_vr,web,mweb`);
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
-        // Inject cookies only for web client + PO Token mode
-        const ytCookieFile = path.join(__dirname, 'yt_cookies.txt');
-        if (fs.existsSync(ytCookieFile)) args.push('--cookies', ytCookieFile);
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
