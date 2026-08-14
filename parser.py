@@ -969,7 +969,6 @@ def scrape_youtube_direct(url):
             'quiet': True,
             'skip_download': True,
             'no_warnings': True,
-            'js_runtimes': {'node': {}},
             'extractor_args': {'youtube': {'player_client': ['android_vr']}}
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
