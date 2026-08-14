@@ -195,7 +195,7 @@ app.get('/api/debug-dl', (req, res) => {
     const formatId = req.query.formatId || '';
     const isAudio = req.query.type === 'audio';
     const ext = isAudio ? 'mp3' : 'mp4';
-    const tempFilePath = path.join(tempDir, `debug_${Date.now()}.${ext}`);
+    const tempFilePath = path.join(os.tmpdir(), `debug_${Date.now()}.${ext}`);
 
     let poToken = process.env.YT_PO_TOKEN || '';
     let visitorData = process.env.YT_VISITOR_DATA || '';
