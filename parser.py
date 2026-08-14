@@ -977,7 +977,7 @@ def scrape_youtube_direct(url):
             if info and info.get('formats'):
                 title = info.get('title') or "YouTube 影片"
                 uploader = info.get('uploader') or "YouTube 創作者"
-                thumbnail = info.get('thumbnail') or f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+                thumbnail = info.get('thumbnail') or "https://i.ytimg.com/vi/default/hqdefault.jpg"
                 yt_formats = info.get('formats', [])
                 
                 v_opts = []
@@ -1036,7 +1036,8 @@ def scrape_youtube_direct(url):
                         "images": [thumbnail],
                         "webpage_url": target_url
                     }
-    except Exception:
+    except Exception as e:
+        print('[YT parser ydl error]:', e)
         pass
     
     match = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});</script>', html_text) or re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});', html_text)
