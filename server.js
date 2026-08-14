@@ -352,11 +352,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
     const isFacebookUrl = targetUrl.includes('facebook') || targetUrl.includes('fb.watch') || targetUrl.includes('fbcdn');
 
-    // YouTube mode detection: enable PO Token mode if visitorData or poToken is provided
+    // YouTube mode detection: require BOTH PO Token AND Visitor Data to enable web client mode
     const poToken = process.env.YT_PO_TOKEN || '';
     const visitorData = process.env.YT_VISITOR_DATA || '';
-    const hasFullPoTokenConfig = !!(poToken || visitorData);
-    // useYtFallback = true means: use tv/android_vr + format 18 (no PO Token or forced fallback)
+    const hasFullPoTokenConfig = !!(poToken && visitorData);
+    // useYtFallback = true means: use android_vr + format 18 (no PO Token or forced fallback)
     const useYtFallback = isYouTubeUrl && (!hasFullPoTokenConfig || forceFallback);
 
     let formatStr;
@@ -408,11 +408,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     // Platform-specific extractor args
     if (useYtFallback) {
-        console.log('[YT] android_vr fallback (format 18, no PO Token)');
+        console.log('[YT] android_vr fallback (format 18, clean unauthenticated mode)');
         // --js-runtimes is CRITICAL: yt-dlp needs a JS runtime to solve YouTube's n-signature challenge.
-        // Without it, even android_vr client will fail with "Sign in to confirm" on cloud IPs.
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
-        args.push('--extractor-args', 'youtube:player_client=tv,android_vr');
+        args.push('--extractor-args', 'youtube:player_client=android_vr');
         args.push('--no-cookies');
     } else if (isYouTubeUrl && hasFullPoTokenConfig) {
         console.log('[YT] PO Token mode (web client + po_token)');
@@ -505,9 +504,9 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             console.error(`ytdlp exit code (${code}), stderr:`, stderrData);
             cleanup();
 
-            // FALLBACK 1: If YouTube PO Token mode failed, automatically retry with tv/android_vr fallback
+            // FALLBACK 1: If YouTube PO Token mode failed, automatically retry with android_vr fallback
             if (isYouTubeUrl && !useYtFallback && !res.headersSent) {
-                console.log('[YT] PO Token mode failed, auto-retrying with tv/android_vr fallback mode...');
+                console.log('[YT] PO Token mode failed, auto-retrying with android_vr fallback mode...');
                 return downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId, type, req, true);
             }
 
@@ -533,6 +532,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                 if (isCookieExpired) {
                     const isYT = targetUrl && (targetUrl.includes('youtube') || targetUrl.includes('youtu.be'));
                     const isIG = targetUrl && (targetUrl.includes('instagram') || targetUrl.includes('threads'));
+                    if (isYT && useYtFallback) {
+                        // In YT fallback mode, bot protection is cloud-IP related, not cookie expiration
+                        return res.status(500).send(`YouTube 下載處理失敗 (${code})，請稍後再試。`);
+                    }
                     const platform = isYT ? 'youtube' : isIG ? 'instagram' : 'general';
                     return res.status(401).json({ error_type: 'cookie_expired', platform });
                 }
