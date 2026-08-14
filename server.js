@@ -412,7 +412,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         // --js-runtimes is CRITICAL: yt-dlp needs a JS runtime to solve YouTube's n-signature challenge.
         // Without it, even android_vr client will fail with "Sign in to confirm" on cloud IPs.
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
-        args.push('--extractor-args', 'youtube:player_client=android_vr');
+        args.push('--extractor-args', 'youtube:player_client=tv,android_vr');
         args.push('--no-cookies');
     } else if (isYouTubeUrl && hasFullPoTokenConfig) {
         console.log('[YT] PO Token mode (web client + po_token)');

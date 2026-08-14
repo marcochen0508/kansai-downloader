@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
             cookieExpiredDesc.innerHTML = lines.map(l => `<span>${l}</span>`).join('<br>');
         }
         cookieExpiredOverlay.style.display = 'flex';
+        try {
+            cookieExpiredOverlay.scrollIntoView({ block: 'center' });
+        } catch (e) {}
     }
 
     if (btnCookieClose) {
