@@ -352,10 +352,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const isInstagramUrl = targetUrl.includes('instagram') || targetUrl.includes('instagr.am');
     const isFacebookUrl = targetUrl.includes('facebook') || targetUrl.includes('fb.watch') || targetUrl.includes('fbcdn');
 
-    // YouTube mode detection: require BOTH PO Token AND Visitor Data to enable web client mode
-    const poToken = process.env.YT_PO_TOKEN;
-    const visitorData = process.env.YT_VISITOR_DATA;
-    const hasFullPoTokenConfig = !!(poToken && visitorData);
+    // YouTube mode detection: enable PO Token mode if visitorData or poToken is provided
+    const poToken = process.env.YT_PO_TOKEN || '';
+    const visitorData = process.env.YT_VISITOR_DATA || '';
+    const hasFullPoTokenConfig = !!(poToken || visitorData);
     // useYtFallback = true means: use tv/android_vr + format 18 (no PO Token or forced fallback)
     const useYtFallback = isYouTubeUrl && (!hasFullPoTokenConfig || forceFallback);
 
