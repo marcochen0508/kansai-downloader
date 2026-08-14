@@ -45,6 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const imageOptionGroup = document.getElementById('imageOptionGroup');
     const imageList = document.getElementById('imageList');
     
+    const ytHybridCard = document.getElementById('ytHybridCard');
+    const ytHybridIframe = document.getElementById('ytHybridIframe');
+    
     const toast = document.getElementById('toast');
 
     // Safe URI Component Encoder (prevents URIError: URI malformed on invalid/unpaired Unicode surrogates)
@@ -220,24 +223,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let p = { icon: '🌐', name: '一般社群網址' };
-        if (val.includes('youtube.com') || val.includes('youtu.be')) {
-            p = { icon: '🔴', name: 'YouTube' };
-        } else if (val.includes('instagram.com') || val.includes('instagr.am')) {
-            p = { icon: '📸', name: 'Instagram' };
-        } else if (val.includes('facebook.com') || val.includes('fb.watch') || val.includes('fb.com')) {
-            p = { icon: '🔵', name: 'Facebook' };
-        } else if (val.includes('tiktok.com') || val.includes('douyin.com')) {
-            p = { icon: '🎵', name: 'TikTok / 抖音' };
-        } else if (val.includes('threads.net') || val.includes('threads.com')) {
-            p = { icon: '🧵', name: 'Threads' };
-        } else if (val.includes('twitter.com') || val.includes('x.com')) {
-            p = { icon: '🖤', name: 'X (Twitter)' };
-        } else if (val.includes('xiaohongshu.com') || val.includes('xhslink.com')) {
-            p = { icon: '📕', name: '小紅書 RED' };
-        } else if (val.includes('bilibili.com') || val.includes('b23.tv')) {
-            p = { icon: '📺', name: 'Bilibili' };
-        } else if (val.includes('t.me/') || val.includes('telegram.me')) {
-            p = { icon: '✈️', name: 'Telegram' };
+        const isYouTube = val.includes('youtube.com') || val.includes('youtu.be');
+        if (isYouTube) {
+            p = { icon: '🔴', name: 'YouTube (極速通道)' };
+            if (ytHybridCard) {
+                ytHybridCard.style.display = 'block';
+                const targetUrl = url.trim();
+                const proxySrc = '/proxy/yt-engine?url=' + encodeURIComponent(targetUrl);
+                if (ytHybridIframe && ytHybridIframe.getAttribute('data-loaded-url') !== targetUrl) {
+                    ytHybridIframe.setAttribute('data-loaded-url', targetUrl);
+                    ytHybridIframe.src = proxySrc;
+                }
+            }
+        } else {
+            if (ytHybridCard) {
+                ytHybridCard.style.display = 'none';
+            }
+            if (val.includes('instagram.com') || val.includes('instagr.am')) {
+                p = { icon: '📸', name: 'Instagram' };
+            } else if (val.includes('facebook.com') || val.includes('fb.watch') || val.includes('fb.com')) {
+                p = { icon: '🔵', name: 'Facebook' };
+            } else if (val.includes('tiktok.com') || val.includes('douyin.com')) {
+                p = { icon: '🎵', name: 'TikTok / 抖音' };
+            } else if (val.includes('threads.net') || val.includes('threads.com')) {
+                p = { icon: '🧵', name: 'Threads' };
+            } else if (val.includes('twitter.com') || val.includes('x.com')) {
+                p = { icon: '🖤', name: 'X (Twitter)' };
+            } else if (val.includes('xiaohongshu.com') || val.includes('xhslink.com')) {
+                p = { icon: '📕', name: '小紅書 RED' };
+            } else if (val.includes('bilibili.com') || val.includes('b23.tv')) {
+                p = { icon: '📺', name: 'Bilibili' };
+            } else if (val.includes('t.me/') || val.includes('telegram.me')) {
+                p = { icon: '✈️', name: 'Telegram' };
+            }
         }
 
         detectedIcon.textContent = p.icon;
@@ -273,6 +291,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetUrl = urlInput.value.trim();
         if (!targetUrl) {
             showError('請先輸入或貼上有效的影音或貼文網址！');
+            return;
+        }
+
+        const isYT = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be');
+        if (isYT && ytHybridCard) {
+            ytHybridCard.style.display = 'block';
+            const proxySrc = '/proxy/yt-engine?url=' + encodeURIComponent(targetUrl);
+            if (ytHybridIframe && ytHybridIframe.getAttribute('data-loaded-url') !== targetUrl) {
+                ytHybridIframe.setAttribute('data-loaded-url', targetUrl);
+                ytHybridIframe.src = proxySrc;
+            }
+            ytHybridCard.scrollIntoView({ behavior: 'smooth' });
+            showToast('🌸 已為您啟動 YouTube 專屬無損解析下載通道！');
             return;
         }
 

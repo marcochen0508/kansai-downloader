@@ -247,6 +247,111 @@ app.get('/api/debug-dl', (req, res) => {
         });
     } catch(err) {
         res.status(500).json({ error: err.toString() });
+// Reverse Proxy for YouTube Hybrid Engine (vd6s.net)
+app.get('/proxy/yt-engine', (req, res) => {
+    try {
+        const targetUrl = 'https://vd6s.net/zh-tw4/';
+        const options = {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Referer': 'https://vd6s.net/'
+            }
+        };
+
+        https.get(targetUrl, options, (proxyRes) => {
+            let body = '';
+            proxyRes.on('data', chunk => body += chunk);
+            proxyRes.on('end', () => {
+                const baseTag = '<base href="https://vd6s.net/zh-tw4/">\n';
+                const customStyle = `
+                <style>
+                    header, footer, nav, .navbar, .site-header, .site-footer,
+                    .ads, .ad-banner, .faq-section, .faq, .features, .features-section,
+                    .how-to, .how-to-section, .about, .about-section,
+                    .modal-backdrop, #contact-modal, #feedback-modal,
+                    .review-section, .trustpilot-widget, .trustpilot {
+                        display: none !important;
+                    }
+                    body {
+                        background: transparent !important;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+                        padding: 5px !important;
+                        margin: 0 !important;
+                        min-height: auto !important;
+                        overflow-x: hidden !important;
+                    }
+                    .container, .container-fluid {
+                        max-width: 100% !important;
+                        padding: 0 !important;
+                        margin: 0 auto !important;
+                    }
+                    .hero-section, .hero, .search-box, .search-container, .form-container {
+                        padding: 10px 0 !important;
+                        margin: 0 auto !important;
+                    }
+                    .btn-primary, .btn-submit, button[type="submit"] {
+                        background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+                        border: none !important;
+                        border-radius: 12px !important;
+                        font-weight: bold !important;
+                    }
+                    .form-control, input[type="text"] {
+                        border-radius: 12px !important;
+                        border: 2px solid #fecaca !important;
+                    }
+                    .form-control:focus, input[type="text"]:focus {
+                        border-color: #ef4444 !important;
+                        box-shadow: 0 0 0 0.25rem rgba(239, 68, 68, 0.25) !important;
+                    }
+                    #result, .result-container {
+                        margin-top: 15px !important;
+                    }
+                </style>
+                `;
+
+                let modified = body;
+                if (modified.includes('<head>')) {
+                    modified = modified.replace('<head>', `<head>\n${baseTag}\n${customStyle}`);
+                } else if (modified.includes('<head ')) {
+                    modified = modified.replace(/<head[^>]*>/, `$& \n${baseTag}\n${customStyle}`);
+                } else {
+                    modified = `${baseTag}${customStyle}${modified}`;
+                }
+
+                const prefillUrl = req.query.url || req.query.q || '';
+                if (prefillUrl) {
+                    const prefillScript = `
+                    <script>
+                        window.addEventListener('DOMContentLoaded', function() {
+                            setTimeout(function() {
+                                var inp = document.querySelector('input[name="url"], input[type="text"], #search-input, .search-input, #txt-url');
+                                if (inp) {
+                                    inp.value = decodeURIComponent(${JSON.stringify(encodeURIComponent(prefillUrl))});
+                                    inp.dispatchEvent(new Event('input', { bubbles: true }));
+                                    var btn = document.querySelector('button[type="submit"], #btn-submit, .btn-submit');
+                                    if (btn) {
+                                        setTimeout(function() { btn.click(); }, 300);
+                                    }
+                                }
+                            }, 500);
+                        });
+                    </script>
+                    `;
+                    modified = modified.replace('</body>', `${prefillScript}\n</body>`);
+                }
+
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.removeHeader('X-Frame-Options');
+                res.removeHeader('Content-Security-Policy');
+                res.send(modified);
+            });
+        }).on('error', (err) => {
+            res.status(500).send('無法載入 YouTube 下載引擎，請稍後再試。');
+        });
+    } catch (e) {
+        res.status(500).send('無法載入 YouTube 下載引擎');
     }
 });
 
