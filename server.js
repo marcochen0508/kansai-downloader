@@ -190,6 +190,54 @@ app.get('/api/download', async (req, res) => {
     downloadViaYtdlp(mediaUrl, targetWebpageUrl, safeFilename, res, formatId, type, req);
 });
 
+app.get('/api/debug-dl', (req, res) => {
+    const targetUrl = req.query.url || 'https://www.youtube.com/shorts/PSz99aFKyUE';
+    const formatId = req.query.formatId || '';
+    const isAudio = req.query.type === 'audio';
+    const ext = isAudio ? 'mp3' : 'mp4';
+    const tempFilePath = path.join(tempDir, `debug_${Date.now()}.${ext}`);
+
+    let poToken = process.env.YT_PO_TOKEN || '';
+    let visitorData = process.env.YT_VISITOR_DATA || '';
+    try { poToken = decodeURIComponent(poToken.trim()); } catch(e) {}
+    try { visitorData = decodeURIComponent(visitorData.trim()); } catch(e) {}
+    const hasFullPoTokenConfig = !!(poToken && visitorData);
+    const useYtFallback = !hasFullPoTokenConfig;
+
+    let formatStr = 'bestvideo[height<=1080]+bestaudio/18/b/best';
+
+    const args = [
+        targetUrl,
+        '-f', formatStr,
+        '-o', tempFilePath,
+        '--no-playlist',
+        '--socket-timeout', '30',
+        '--buffer-size', '16k',
+        '--concurrent-fragments', '1',
+        '--no-check-certificates'
+    ];
+
+    if (useYtFallback) {
+        args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
+        args.push('--extractor-args', 'youtube:player_client=tv,android_vr,mweb');
+        args.push('--no-cookies');
+    } else {
+        args.push('--extractor-args', `youtube:po_token=web+${visitorData}:${poToken};player_client=tv,android_vr,web,mweb`);
+        args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
+    }
+
+    if (ffmpegPath) args.push('--ffmpeg-location', ffmpegPath);
+
+    const child = spawn(pythonExecPath, ['-m', 'yt_dlp', ...args]);
+    let stdout = '', stderr = '';
+    child.stdout.on('data', d => stdout += d.toString());
+    child.stderr.on('data', d => stderr += d.toString());
+    child.on('close', code => {
+        try { if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); } catch(e) {}
+        res.json({ code, stdout, stderr, args, hasFullPoTokenConfig, poTokenLength: poToken.length, visitorDataLength: visitorData.length });
+    });
+});
+
 // Proxy Image API to bypass Referer / Hotlink protection
 app.get('/api/proxy-image', (req, res) => {
     const imageUrl = req.query.url;
