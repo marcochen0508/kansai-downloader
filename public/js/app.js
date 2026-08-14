@@ -45,72 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const imageOptionGroup = document.getElementById('imageOptionGroup');
     const imageList = document.getElementById('imageList');
     
-    const ytHybridCard = document.getElementById('ytHybridCard');
-    const ytPreviewBox = document.getElementById('ytPreviewBox');
-    const ytThumbImg = document.getElementById('ytThumbImg');
-    const ytVideoTitle = document.getElementById('ytVideoTitle');
-    const ytVideoAuthor = document.getElementById('ytVideoAuthor');
-    const btnGatewayVd6s = document.getElementById('btnGatewayVd6s');
-    const btnGatewaySs = document.getElementById('btnGatewaySs');
-    const btnGatewayY2mate = document.getElementById('btnGatewayY2mate');
-
-    async function openGateway(targetBaseUrl, name) {
-        const targetUrl = urlInput.value.trim();
-        if (!targetUrl) {
-            showError('請先輸入或貼上 YouTube 影片網址！');
-            return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(targetUrl);
-            showToast(`已複製網址！正在開啟 ${name}...`);
-        } catch (e) {
-            showToast(`正在開啟 ${name}...`);
-        }
-
-        setTimeout(() => {
-            window.open(targetBaseUrl, '_blank');
-        }, 200);
-    }
-
-    if (btnGatewayVd6s) {
-        btnGatewayVd6s.addEventListener('click', () => {
-            openGateway('https://vd6s.net/zh-tw4/', 'VD6S 極速通道');
-        });
-    }
-    if (btnGatewaySs) {
-        btnGatewaySs.addEventListener('click', () => {
-            openGateway('https://ssyoutube.com/zh-tw4/', 'SSYouTube 高畫質通道');
-        });
-    }
-    if (btnGatewayY2mate) {
-        btnGatewayY2mate.addEventListener('click', () => {
-            openGateway('https://y2mate.is/zh-tw/youtube-to-mp3.html', 'Y2Mate MP3 提取通道');
-        });
-    }
-
-    async function loadYouTubePreview(url) {
-        try {
-            const vidMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/i);
-            if (vidMatch && ytPreviewBox) {
-                const vid = vidMatch[1];
-                ytThumbImg.src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
-                ytPreviewBox.style.display = 'flex';
-                ytVideoTitle.textContent = 'YouTube 影片載入中...';
-                ytVideoAuthor.textContent = '點擊下方通道即可一鍵下載';
-
-                fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.title) ytVideoTitle.textContent = data.title;
-                        if (data.author_name) ytVideoAuthor.textContent = `創作者：${data.author_name}`;
-                        if (data.thumbnail_url) ytThumbImg.src = data.thumbnail_url;
-                    })
-                    .catch(() => {});
-            }
-        } catch (e) {}
-    }
-    
     const toast = document.getElementById('toast');
 
     // Safe URI Component Encoder (prevents URIError: URI malformed on invalid/unpaired Unicode surrogates)
@@ -282,39 +216,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = url.toLowerCase().trim();
         if (!val) {
             detectedBadge.style.display = 'none';
-            if (ytHybridCard) ytHybridCard.style.display = 'none';
             return;
         }
 
         let p = { icon: '🌐', name: '一般社群網址' };
-        const isYouTube = val.includes('youtube.com') || val.includes('youtu.be');
-        if (isYouTube) {
-            p = { icon: '🔴', name: 'YouTube (極速通道)' };
-            if (ytHybridCard) {
-                ytHybridCard.style.display = 'block';
-                loadYouTubePreview(url.trim());
-            }
-        } else {
-            if (ytHybridCard) {
-                ytHybridCard.style.display = 'none';
-            }
-            if (val.includes('instagram.com') || val.includes('instagr.am')) {
-                p = { icon: '📸', name: 'Instagram' };
-            } else if (val.includes('facebook.com') || val.includes('fb.watch') || val.includes('fb.com')) {
-                p = { icon: '🔵', name: 'Facebook' };
-            } else if (val.includes('tiktok.com') || val.includes('douyin.com')) {
-                p = { icon: '🎵', name: 'TikTok / 抖音' };
-            } else if (val.includes('threads.net') || val.includes('threads.com')) {
-                p = { icon: '🧵', name: 'Threads' };
-            } else if (val.includes('twitter.com') || val.includes('x.com')) {
-                p = { icon: '🖤', name: 'X (Twitter)' };
-            } else if (val.includes('xiaohongshu.com') || val.includes('xhslink.com')) {
-                p = { icon: '📕', name: '小紅書 RED' };
-            } else if (val.includes('bilibili.com') || val.includes('b23.tv')) {
-                p = { icon: '📺', name: 'Bilibili' };
-            } else if (val.includes('t.me/') || val.includes('telegram.me')) {
-                p = { icon: '✈️', name: 'Telegram' };
-            }
+        if (val.includes('youtube.com') || val.includes('youtu.be')) {
+            p = { icon: '🔴', name: 'YouTube' };
+        } else if (val.includes('instagram.com') || val.includes('instagr.am')) {
+            p = { icon: '📸', name: 'Instagram' };
+        } else if (val.includes('facebook.com') || val.includes('fb.watch') || val.includes('fb.com')) {
+            p = { icon: '🔵', name: 'Facebook' };
+        } else if (val.includes('tiktok.com') || val.includes('douyin.com')) {
+            p = { icon: '🎵', name: 'TikTok / 抖音' };
+        } else if (val.includes('threads.net') || val.includes('threads.com')) {
+            p = { icon: '🧵', name: 'Threads' };
+        } else if (val.includes('twitter.com') || val.includes('x.com')) {
+            p = { icon: '🖤', name: 'X (Twitter)' };
+        } else if (val.includes('xiaohongshu.com') || val.includes('xhslink.com')) {
+            p = { icon: '📕', name: '小紅書 RED' };
+        } else if (val.includes('bilibili.com') || val.includes('b23.tv')) {
+            p = { icon: '📺', name: 'Bilibili' };
+        } else if (val.includes('t.me/') || val.includes('telegram.me')) {
+            p = { icon: '✈️', name: 'Telegram' };
         }
 
         detectedIcon.textContent = p.icon;
@@ -350,15 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetUrl = urlInput.value.trim();
         if (!targetUrl) {
             showError('請先輸入或貼上有效的影音或貼文網址！');
-            return;
-        }
-
-        const isYT = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be');
-        if (isYT && ytHybridCard) {
-            ytHybridCard.style.display = 'block';
-            loadYouTubePreview(targetUrl);
-            ytHybridCard.scrollIntoView({ behavior: 'smooth' });
-            showToast('🌸 已為您載入 YouTube 專屬無損解析通道！');
             return;
         }
 
