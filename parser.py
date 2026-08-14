@@ -994,20 +994,33 @@ def scrape_youtube_direct(url):
                     has_audio = f.get('acodec') is not None and f.get('acodec') != 'none'
                     vcodec = f.get('vcodec') or ''
                     
-                    if has_audio and vcodec != 'none':
-                        # Progressive format (e.g. format 18, format 22)
-                        res_label = f"{eff_h}p HD 高畫質 (MP4)" if eff_h >= 720 else f"{eff_h}p MP4 (推薦線上觀看與下載)"
-                        size_mb = f"{round(f.get('filesize', 0)/(1024*1024), 1)} MB" if f.get('filesize') else ''
-                        v_opts.append({
-                            'quality': res_label,
-                            'height': eff_h,
-                            'ext': 'mp4',
-                            'has_audio': True,
-                            'size': size_mb,
-                            'url': u,
-                            'format_id': 'direct',
-                            'webpage_url': target_url
-                        })
+                    if vcodec != 'none':
+                        if has_audio:
+                            res_label = f"{eff_h}p HD 高畫質 (MP4)" if eff_h >= 720 else f"{eff_h}p MP4 (推薦極速下載)"
+                            size_mb = f"{round(f.get('filesize', 0)/(1024*1024), 1)} MB" if f.get('filesize') else ''
+                            v_opts.append({
+                                'quality': res_label,
+                                'height': eff_h,
+                                'ext': 'mp4',
+                                'has_audio': True,
+                                'size': size_mb,
+                                'url': u,
+                                'format_id': 'direct',
+                                'webpage_url': watch_url
+                            })
+                        elif eff_h >= 720:
+                            res_label = f"{eff_h}p Full HD 高畫質 (MP4)" if eff_h >= 1080 else f"{eff_h}p HD 高畫質 (MP4)"
+                            size_mb = f"{round(f.get('filesize', 0)/(1024*1024), 1)} MB" if f.get('filesize') else ''
+                            v_opts.append({
+                                'quality': res_label,
+                                'height': eff_h,
+                                'ext': 'mp4',
+                                'has_audio': False,
+                                'size': size_mb,
+                                'url': watch_url,
+                                'format_id': str(f.get('format_id', 'bestvideo')),
+                                'webpage_url': watch_url
+                            })
                     elif vcodec == 'none' and has_audio:
                         # Audio-only format (e.g. format 140)
                         if len(a_opts) < 2:
