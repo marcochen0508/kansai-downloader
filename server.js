@@ -205,8 +205,10 @@ app.get('/api/debug-dl', (req, res) => {
     const hasFullPoTokenConfig = !!(poToken && visitorData);
     const forceFallback = req.query.fallback === 'true';
     const useYtFallback = !hasFullPoTokenConfig || forceFallback;
+    const customClient = req.query.client || (useYtFallback ? 'android_vr' : 'tv,android_vr,web,mweb');
+    const customFormat = req.query.format || (useYtFallback ? '18/b/best' : 'bestvideo[height<=1080]+bestaudio/18/b/best');
 
-    let formatStr = 'bestvideo[height<=1080]+bestaudio/18/b/best';
+    let formatStr = customFormat;
 
     const args = [
         targetUrl,
@@ -221,10 +223,10 @@ app.get('/api/debug-dl', (req, res) => {
 
     if (useYtFallback) {
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
-        args.push('--extractor-args', 'youtube:player_client=tv,android_vr,mweb');
+        args.push('--extractor-args', `youtube:player_client=${customClient}`);
         args.push('--no-cookies');
     } else {
-        args.push('--extractor-args', `youtube:po_token=web+${visitorData}:${poToken};player_client=tv,android_vr,web,mweb`);
+        args.push('--extractor-args', `youtube:po_token=web+${visitorData}:${poToken};player_client=${customClient}`);
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
     }
 
