@@ -426,14 +426,14 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     let formatStr;
     if (isYouTubeUrl) {
-        formatStr = '18/b/best';
+        formatStr = isAudio ? '140/bestaudio/best' : '18/b/best';
     } else if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
         if (formatId.includes('+') || formatId.includes('/')) {
-            formatStr = `${formatId}/18/b/best`;
+            formatStr = `${formatId}/best`;
         } else {
-            formatStr = `${formatId}+bestaudio/${formatId}/18/b/best`;
+            formatStr = `${formatId}+bestaudio/${formatId}/best`;
         }
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
