@@ -962,22 +962,17 @@ def scrape_youtube_direct(url):
         except Exception as e:
             return {"success": False, "error": str(e)}
             
-    # Try yt_dlp extract_info with android_vr client to get un-ciphered googlevideo.com CDN URLs
+    # Try subprocess yt-dlp -j with android_vr client to get un-ciphered googlevideo.com CDN URLs
     try:
-        import yt_dlp
-        ydl_opts = {
-            'quiet': True,
-            'skip_download': True,
-            'no_warnings': True,
-            'extractor_args': {'youtube': {'player_client': ['android_vr']}}
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            watch_url = f"https://www.youtube.com/watch?v={video_id}"
-            info = ydl.extract_info(watch_url, download=False)
+        watch_url = f"https://www.youtube.com/watch?v={video_id}"
+        cmd = [sys.executable, '-m', 'yt_dlp', watch_url, '--extractor-args', 'youtube:player_client=android_vr', '-j', '--no-cookies', '--no-playlist']
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if proc.returncode == 0 and proc.stdout:
+            info = json.loads(proc.stdout)
             if info and info.get('formats'):
                 title = info.get('title') or "YouTube 影片"
                 uploader = info.get('uploader') or "YouTube 創作者"
-                thumbnail = info.get('thumbnail') or "https://i.ytimg.com/vi/default/hqdefault.jpg"
+                thumbnail = info.get('thumbnail') or f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
                 yt_formats = info.get('formats', [])
                 
                 v_opts = []
