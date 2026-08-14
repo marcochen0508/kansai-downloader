@@ -1049,8 +1049,8 @@ def scrape_youtube_direct(url):
                                 'ext': 'mp4',
                                 'has_audio': True,
                                 'size': size_mb,
-                                'url': u,
-                                'format_id': 'direct',
+                                'url': watch_url,
+                                'format_id': str(f.get('format_id', '18')),
                                 'webpage_url': watch_url
                             })
                         elif eff_h >= 720:
@@ -1075,9 +1075,9 @@ def scrape_youtube_direct(url):
                                 'quality': f"提取 YouTube 影片原聲 ({round(abr)} kbps MP3/M4A)",
                                 'ext': 'mp3',
                                 'size': size_mb,
-                                'url': u,
+                                'url': watch_url,
                                 'format_id': str(f.get('format_id', 'bestaudio')),
-                                'webpage_url': target_url
+                                'webpage_url': watch_url
                             })
 
                 if v_opts or a_opts:

@@ -177,10 +177,10 @@ app.get('/api/download', async (req, res) => {
     }
 
     const isDirectStream = (formatId === 'direct' || formatId === 'bestaudio');
-    const isDirectCdnUrl = isDirectStream && (mediaUrl.includes('googlevideo.com') || mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('twimg') || mediaUrl.includes('tiktokcdn'));
+    const isDirectCdnUrl = !isYouTube && isDirectStream && (mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('twimg') || mediaUrl.includes('tiktokcdn'));
 
     // Direct stream ONLY for progressive single-file CDN URLs (formatId === 'direct' or 'bestaudio')
-    if (isDirectCdnUrl || (isDirectStream && type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http'))) {
+    if (!isYouTube && (isDirectCdnUrl || (isDirectStream && type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http')))) {
         console.log('[Stream] Direct CDN stream bypass:', mediaUrl.substring(0, 80));
         const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
         setContentDisposition(res, safeFilename);
@@ -405,10 +405,16 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         targetUrl = url;
     }
 
-    if (targetUrl && targetUrl.includes('youtube.com/shorts/')) {
-        const m = targetUrl.match(/shorts\/([\w-]{11})/);
-        if (m) {
-            targetUrl = `https://www.youtube.com/watch?v=${m[1]}`;
+    if (targetUrl && (targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be'))) {
+        let vid = null;
+        const mShorts = targetUrl.match(/shorts\/([\w-]{11})/i);
+        const mWatch = targetUrl.match(/[?&]v=([\w-]{11})/i);
+        const mYoutu = targetUrl.match(/youtu\.be\/([\w-]{11})/i);
+        if (mShorts) vid = mShorts[1];
+        else if (mWatch) vid = mWatch[1];
+        else if (mYoutu) vid = mYoutu[1];
+        if (vid) {
+            targetUrl = `https://www.youtube.com/watch?v=${vid}`;
         }
     }
 
@@ -432,16 +438,16 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const useYtFallback = isYouTubeUrl && (!hasFullPoTokenConfig || forceFallback);
 
     let formatStr;
-    if (isYouTubeUrl) {
-        formatStr = isAudio ? '140/bestaudio/best' : '18/b/best';
-    } else if (isAudio) {
-        formatStr = 'bestaudio/best';
+    if (isAudio) {
+        formatStr = (formatId && formatId !== 'direct' && formatId !== 'bestaudio') ? `${formatId}/bestaudio/best` : 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
         if (formatId.includes('+') || formatId.includes('/')) {
             formatStr = `${formatId}/best`;
         } else {
             formatStr = `${formatId}+bestaudio/${formatId}/best`;
         }
+    } else if (isYouTubeUrl) {
+        formatStr = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/18/b/best';
     } else if (isInstagramUrl || isFacebookUrl) {
         formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
     } else {
@@ -478,10 +484,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     // Platform-specific extractor args
     if (isYouTubeUrl) {
-        console.log('[YT] Impersonate Chrome + android_vr mode');
+        console.log('[YT] Impersonate Node JS runtime mode');
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
-        args.push('--extractor-args', 'youtube:player_client=android_vr');
-        args.push('--no-cookies');
+        if (fs.existsSync(ytCookieFilePath)) {
+            args.push('--cookies', ytCookieFilePath);
+        }
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
