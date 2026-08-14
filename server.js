@@ -176,10 +176,11 @@ app.get('/api/download', async (req, res) => {
         return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    const isDirectStream = (formatId === 'direct') && !isYouTube && !isBilibili && !isInstagram;
+    const isDirectCdnUrl = mediaUrl.includes('googlevideo.com') || mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('twimg') || mediaUrl.includes('tiktokcdn');
 
-    // Direct stream only for progressive non-YouTube non-IG non-Bilibili formats
-    if (isDirectStream || (type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http'))) {
+    // Direct stream for progressive CDN URLs to bypass yt-dlp datacenter IP blocks completely
+    if (isDirectStream || isDirectCdnUrl || (type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http'))) {
+        console.log('[Stream] Direct CDN stream bypass:', mediaUrl.substring(0, 80));
         const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', contentType);
@@ -187,7 +188,7 @@ app.get('/api/download', async (req, res) => {
         return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    // ALWAYS use backend yt-dlp proxy stream for YouTube, Bilibili, Instagram, and FB DASH
+    // ALWAYS use backend yt-dlp proxy stream for YouTube merge formats, Bilibili, and FB DASH
     downloadViaYtdlp(mediaUrl, targetWebpageUrl, safeFilename, res, formatId, type, req);
 });
 

@@ -962,7 +962,81 @@ def scrape_youtube_direct(url):
         except Exception as e:
             return {"success": False, "error": str(e)}
             
-    match = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});</script>', html_text) or re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});', html_text)
+    # Try yt_dlp extract_info with android_vr client to get un-ciphered googlevideo.com CDN URLs
+    try:
+        import yt_dlp
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'no_warnings': True,
+            'extractor_args': {'youtube': {'player_client': ['android_vr']}}
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(target_url, download=False)
+            if info and info.get('formats'):
+                title = info.get('title') or "YouTube 影片"
+                uploader = info.get('uploader') or "YouTube 創作者"
+                thumbnail = info.get('thumbnail') or f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+                yt_formats = info.get('formats', [])
+                
+                v_opts = []
+                a_opts = []
+                for f in yt_formats:
+                    u = f.get('url')
+                    if not u or 'googlevideo.com' not in u:
+                        continue
+                    mime = f.get('mimeType', '') or f.get('ext', '')
+                    q = f.get('qualityLabel') or f.get('resolution') or ''
+                    w = f.get('width') or 0
+                    h = f.get('height') or 0
+                    eff_h = min(w, h) if (w > 0 and h > 0) else (h or 360)
+                    has_audio = f.get('acodec') is not None and f.get('acodec') != 'none'
+                    vcodec = f.get('vcodec') or ''
+                    
+                    if has_audio and vcodec != 'none':
+                        # Progressive format (e.g. format 18, format 22)
+                        res_label = f"{eff_h}p HD 高畫質 (MP4)" if eff_h >= 720 else f"{eff_h}p MP4 (推薦線上觀看與下載)"
+                        size_mb = f"{round(f.get('filesize', 0)/(1024*1024), 1)} MB" if f.get('filesize') else ''
+                        v_opts.append({
+                            'quality': res_label,
+                            'height': eff_h,
+                            'ext': 'mp4',
+                            'has_audio': True,
+                            'size': size_mb,
+                            'url': u,
+                            'format_id': str(f.get('format_id', 'direct')),
+                            'webpage_url': target_url
+                        })
+                    elif vcodec == 'none' and has_audio:
+                        # Audio-only format (e.g. format 140)
+                        if len(a_opts) < 2:
+                            abr = f.get('abr') or 128
+                            size_mb = f"{round(f.get('filesize', 0)/(1024*1024), 1)} MB" if f.get('filesize') else ''
+                            a_opts.append({
+                                'quality': f"提取 YouTube 影片原聲 ({round(abr)} kbps MP3/M4A)",
+                                'ext': 'mp3',
+                                'size': size_mb,
+                                'url': u,
+                                'format_id': str(f.get('format_id', 'bestaudio')),
+                                'webpage_url': target_url
+                            })
+
+                if v_opts or a_opts:
+                    platform = {"id": "youtube", "name": "YouTube", "icon": "🔴", "color": "#ff0000"}
+                    return {
+                        "success": True,
+                        "platform": platform,
+                        "title": title,
+                        "description": title,
+                        "uploader": uploader,
+                        "thumbnail": thumbnail,
+                        "videos": v_opts,
+                        "audios": a_opts,
+                        "images": [thumbnail],
+                        "webpage_url": target_url
+                    }
+    except Exception:
+        pass
     
     if not match:
         return {"success": False, "error": "Could not find player response"}
@@ -1405,9 +1479,9 @@ def parse_url(target_url):
                 res_key = f"{height}"
                 if res_key not in seen_res:
                     seen_res.add(res_key)
-                    # For YouTube: never pass IP-bound CDN url; always use webpage_url so
-                    # the backend yt-dlp will re-extract a fresh stream for the correct server IP
-                    item_url = webpage_url if is_youtube else f_url
+                    # Use direct CDN URL (f_url) for progressive streams (googlevideo, cdninstagram, fbcdn, etc.)
+                    # so that backend fetchAndStream can stream directly from CDN without calling yt-dlp on cloud IP
+                    item_url = f_url
                     video_options.append({
                         'quality': res_label,
                         'height': height,
@@ -1421,8 +1495,7 @@ def parse_url(target_url):
 
             elif acodec != 'none' and vcodec == 'none':
                 abr = f.get('abr') or 128
-                # For YouTube: use webpage_url to avoid IP-bound CDN audio URLs
-                item_url = webpage_url if is_youtube else f_url
+                item_url = f_url
                 audio_options.append({
                     'quality': f"純音檔 ({int(abr)} kbps)",
                     'ext': ext,
