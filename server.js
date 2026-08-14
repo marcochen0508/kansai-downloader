@@ -581,8 +581,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                     const isYT = targetUrl && (targetUrl.includes('youtube') || targetUrl.includes('youtu.be'));
                     const isIG = targetUrl && (targetUrl.includes('instagram') || targetUrl.includes('threads'));
                     if (isYT && useYtFallback) {
-                        // In YT fallback mode, bot protection is cloud-IP related, not cookie expiration
-                        return res.status(500).send(`YouTube 下載處理失敗 (${code})，請稍後再試。`);
+                        if (isYouTubeUrl) {
+                            return res.status(500).send(`ytdlp_error (${code}): ${stderrData || 'Unknown error'}`);
+                        }
+
+                        res.status(500).send('影片下載處理失敗，請稍後再試。');
                     }
                     const platform = isYT ? 'youtube' : isIG ? 'instagram' : 'general';
                     return res.status(401).json({ error_type: 'cookie_expired', platform });
