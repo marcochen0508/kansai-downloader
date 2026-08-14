@@ -186,13 +186,18 @@ def scrape_twitter_fallback(url):
             vid_idx = 1
             img_idx = 1
             
+            # Collect per-video thumbnail URLs from vxtwitter API
+            video_thumbnails = []
+
             for item in media_extended:
                 m_type = item.get('type')
                 m_url = item.get('url')
-                
+                # vxtwitter provides thumbnail_url for each video/gif item
+                m_thumb = item.get('thumbnail_url') or item.get('thumbnailUrl') or ''
+
                 if not m_url:
                     continue
-                    
+
                 if m_type in ['video', 'gif']:
                     label = f"影片 {vid_idx} (高畫質 MP4)" if vid_idx > 1 else "高畫質影片 (MP4)"
                     videos.append({
@@ -203,9 +208,10 @@ def scrape_twitter_fallback(url):
                         'size': '',
                         'url': m_url,
                         'format_id': 'direct',
-                        'webpage_url': url
+                        'webpage_url': url,
+                        'thumbnail': m_thumb  # 影片專屬縮圖 URL
                     })
-                    
+
                     audio_label = f"提取影片 {vid_idx} 原聲 (MP3)" if vid_idx > 1 else "提取原聲 (MP3)"
                     audios.append({
                         'quality': audio_label,
@@ -215,8 +221,10 @@ def scrape_twitter_fallback(url):
                         'format_id': 'bestaudio',
                         'webpage_url': url
                     })
+                    if m_thumb:
+                        video_thumbnails.append(m_thumb)
                     vid_idx += 1
-                    
+
                 elif m_type == 'image':
                     high_res_photo = m_url
                     if 'pbs.twimg.com/media/' in high_res_photo:
@@ -225,7 +233,13 @@ def scrape_twitter_fallback(url):
                     images.append(high_res_photo)
                     img_idx += 1
 
-            thumbnail = images[0] if images else (videos[0]['url'] if videos else "")
+            # 縮圖優先順序：靜態圖片 > 影片縮圖 URL（非影片串流 URL）
+            if images:
+                thumbnail = images[0]
+            elif video_thumbnails:
+                thumbnail = video_thumbnails[0]  # 使用影片縮圖（pbs.twimg.com 圖片）
+            else:
+                thumbnail = ""  # 無法取得縮圖時留空，避免 proxy 傳入 MP4 URL
 
             return {
                 "success": True,
