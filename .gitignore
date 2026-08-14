@@ -9,4 +9,8 @@ __pycache__/
 scratch/
 *.lnk
 *.url
-
+*.mp4
+*.mkv
+*.webm
+*.part
+*.ytdl
