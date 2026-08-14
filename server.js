@@ -228,14 +228,22 @@ app.get('/api/debug-dl', (req, res) => {
 
     if (ffmpegPath) args.push('--ffmpeg-location', ffmpegPath);
 
-    const child = spawn(pythonExecPath, ['-m', 'yt_dlp', ...args]);
-    let stdout = '', stderr = '';
-    child.stdout.on('data', d => stdout += d.toString());
-    child.stderr.on('data', d => stderr += d.toString());
-    child.on('close', code => {
-        try { if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); } catch(e) {}
-        res.json({ code, stdout, stderr, args, hasFullPoTokenConfig, poTokenLength: poToken.length, visitorDataLength: visitorData.length });
-    });
+    try {
+        const pythonCmd = getPythonCmd();
+        const child = spawn(pythonCmd, ['-m', 'yt_dlp', ...args]);
+        let stdout = '', stderr = '';
+        child.stdout.on('data', d => stdout += d.toString());
+        child.stderr.on('data', d => stderr += d.toString());
+        child.on('close', code => {
+            try { if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath); } catch(e) {}
+            res.json({ code, stdout, stderr, args, hasFullPoTokenConfig, poTokenLength: poToken.length, visitorDataLength: visitorData.length });
+        });
+        child.on('error', err => {
+            res.status(500).json({ error: err.toString(), args });
+        });
+    } catch(err) {
+        res.status(500).json({ error: err.toString() });
+    }
 });
 
 // Proxy Image API to bypass Referer / Hotlink protection
