@@ -449,9 +449,12 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         '--socket-timeout', '30',
         '--buffer-size', '16k',
         '--concurrent-fragments', '1',
-        '--no-check-certificates',
-        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+        '--no-check-certificates'
     ];
+
+    if (!isYouTubeUrl) {
+        args.push('--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36');
+    }
 
     if (isAudio) {
         args.push('-x', '--audio-format', 'mp3');
