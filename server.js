@@ -247,6 +247,9 @@ app.get('/api/debug-dl', (req, res) => {
         });
     } catch(err) {
         res.status(500).json({ error: err.toString() });
+    }
+});
+
 // Reverse Proxy for YouTube Hybrid Engine (vd6s.net)
 app.get('/proxy/yt-engine', (req, res) => {
     try {
