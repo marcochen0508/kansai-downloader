@@ -972,7 +972,7 @@ def scrape_youtube_direct(url):
             'extractor_args': {'youtube': {'player_client': ['android_vr']}}
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(target_url, download=False)
+            info = ydl.extract_info(clean_url, download=False)
             if info and info.get('formats'):
                 title = info.get('title') or "YouTube 影片"
                 uploader = info.get('uploader') or "YouTube 創作者"
