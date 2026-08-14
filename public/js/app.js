@@ -46,7 +46,70 @@ document.addEventListener('DOMContentLoaded', () => {
     const imageList = document.getElementById('imageList');
     
     const ytHybridCard = document.getElementById('ytHybridCard');
-    const ytHybridIframe = document.getElementById('ytHybridIframe');
+    const ytPreviewBox = document.getElementById('ytPreviewBox');
+    const ytThumbImg = document.getElementById('ytThumbImg');
+    const ytVideoTitle = document.getElementById('ytVideoTitle');
+    const ytVideoAuthor = document.getElementById('ytVideoAuthor');
+    const btnGatewayVd6s = document.getElementById('btnGatewayVd6s');
+    const btnGatewaySs = document.getElementById('btnGatewaySs');
+    const btnGatewayY2mate = document.getElementById('btnGatewayY2mate');
+
+    async function openGateway(targetBaseUrl, name) {
+        const targetUrl = urlInput.value.trim();
+        if (!targetUrl) {
+            showError('請先輸入或貼上 YouTube 影片網址！');
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(targetUrl);
+            showToast(`已複製網址！正在開啟 ${name}...`);
+        } catch (e) {
+            showToast(`正在開啟 ${name}...`);
+        }
+
+        setTimeout(() => {
+            window.open(targetBaseUrl, '_blank');
+        }, 200);
+    }
+
+    if (btnGatewayVd6s) {
+        btnGatewayVd6s.addEventListener('click', () => {
+            openGateway('https://vd6s.net/zh-tw4/', 'VD6S 極速通道');
+        });
+    }
+    if (btnGatewaySs) {
+        btnGatewaySs.addEventListener('click', () => {
+            openGateway('https://ssyoutube.com/zh-tw4/', 'SSYouTube 高畫質通道');
+        });
+    }
+    if (btnGatewayY2mate) {
+        btnGatewayY2mate.addEventListener('click', () => {
+            openGateway('https://y2mate.is/zh-tw/youtube-to-mp3.html', 'Y2Mate MP3 提取通道');
+        });
+    }
+
+    async function loadYouTubePreview(url) {
+        try {
+            const vidMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/i);
+            if (vidMatch && ytPreviewBox) {
+                const vid = vidMatch[1];
+                ytThumbImg.src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+                ytPreviewBox.style.display = 'flex';
+                ytVideoTitle.textContent = 'YouTube 影片載入中...';
+                ytVideoAuthor.textContent = '點擊下方通道即可一鍵下載';
+
+                fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.title) ytVideoTitle.textContent = data.title;
+                        if (data.author_name) ytVideoAuthor.textContent = `創作者：${data.author_name}`;
+                        if (data.thumbnail_url) ytThumbImg.src = data.thumbnail_url;
+                    })
+                    .catch(() => {});
+            }
+        } catch (e) {}
+    }
     
     const toast = document.getElementById('toast');
 
@@ -219,6 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = url.toLowerCase().trim();
         if (!val) {
             detectedBadge.style.display = 'none';
+            if (ytHybridCard) ytHybridCard.style.display = 'none';
             return;
         }
 
@@ -228,12 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
             p = { icon: '🔴', name: 'YouTube (極速通道)' };
             if (ytHybridCard) {
                 ytHybridCard.style.display = 'block';
-                const targetUrl = url.trim();
-                const proxySrc = '/proxy/yt-engine?url=' + encodeURIComponent(targetUrl);
-                if (ytHybridIframe && ytHybridIframe.getAttribute('data-loaded-url') !== targetUrl) {
-                    ytHybridIframe.setAttribute('data-loaded-url', targetUrl);
-                    ytHybridIframe.src = proxySrc;
-                }
+                loadYouTubePreview(url.trim());
             }
         } else {
             if (ytHybridCard) {
@@ -297,13 +356,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const isYT = targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be');
         if (isYT && ytHybridCard) {
             ytHybridCard.style.display = 'block';
-            const proxySrc = '/proxy/yt-engine?url=' + encodeURIComponent(targetUrl);
-            if (ytHybridIframe && ytHybridIframe.getAttribute('data-loaded-url') !== targetUrl) {
-                ytHybridIframe.setAttribute('data-loaded-url', targetUrl);
-                ytHybridIframe.src = proxySrc;
-            }
+            loadYouTubePreview(targetUrl);
             ytHybridCard.scrollIntoView({ behavior: 'smooth' });
-            showToast('🌸 已為您啟動 YouTube 專屬無損解析下載通道！');
+            showToast('🌸 已為您載入 YouTube 專屬無損解析通道！');
             return;
         }
 
