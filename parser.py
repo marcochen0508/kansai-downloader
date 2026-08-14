@@ -7,6 +7,7 @@ import urllib.parse
 import ssl
 import base64
 import subprocess
+import concurrent.futures
 
 
 import os
@@ -913,7 +914,55 @@ def scrape_facebook_fallback(url):
     except Exception as e:
         return {"success": False, "error": f"Facebook 解析失敗: {str(e)}"}
 
-    return {"success": False, "error": "Facebook 解析失敗"}
+def _check_youtube_oembed(vid):
+    """Fast check if a YouTube video ID exists via oEmbed."""
+    if not vid or len(vid) != 11:
+        return None
+    url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid}&format=json"
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, context=context, timeout=2.5) as resp:
+            if resp.status == 200:
+                return vid
+    except Exception:
+        pass
+    return None
+
+def _auto_repair_youtube_video_id(video_id):
+    """If video_id fails directly (e.g. casing altered during paste/OCR/mobile copy),
+    test single-character case flips and case variations using YouTube oEmbed in parallel.
+    """
+    if not video_id or len(video_id) != 11:
+        return video_id
+
+    # 1. Test original ID
+    if _check_youtube_oembed(video_id):
+        return video_id
+
+    # 2. Generate candidate mutations
+    candidates = []
+    for i, c in enumerate(video_id):
+        if c.isalpha():
+            flipped = c.lower() if c.isupper() else c.upper()
+            candidates.append(video_id[:i] + flipped + video_id[i+1:])
+    
+    if video_id.lower() not in candidates:
+        candidates.append(video_id.lower())
+    if video_id.upper() not in candidates:
+        candidates.append(video_id.upper())
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+            future_to_cand = {executor.submit(_check_youtube_oembed, cand): cand for cand in candidates}
+            for future in concurrent.futures.as_completed(future_to_cand, timeout=3.5):
+                res = future.result()
+                if res:
+                    return res
+    except Exception:
+        pass
+
+    return video_id
 
 def scrape_youtube_direct(url):
     """Direct mobile player_response scraper for YouTube URLs to bypass Cloud IP blocks."""
@@ -935,6 +984,7 @@ def scrape_youtube_direct(url):
     if not video_id:
         return {"success": False, "error": "Invalid YouTube URL"}
 
+    video_id = _auto_repair_youtube_video_id(video_id)
     target_url = f"https://m.youtube.com/watch?v={video_id}"
     
     headers = {
@@ -1164,6 +1214,9 @@ def scrape_youtube_public_api(url):
     if not video_id:
         return {"success": False, "error": "Invalid YouTube URL"}
 
+    video_id = _auto_repair_youtube_video_id(video_id)
+    clean_url = f"https://www.youtube.com/watch?v={video_id}"
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
         'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
@@ -1323,6 +1376,9 @@ def parse_url(target_url):
         yt_pub_res = scrape_youtube_direct(clean_target_url)
         if yt_pub_res.get('success'):
             return yt_pub_res
+        yt_fallback_res = scrape_youtube_public_api(clean_target_url)
+        if yt_fallback_res.get('success'):
+            return yt_fallback_res
 
     try:
         is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
