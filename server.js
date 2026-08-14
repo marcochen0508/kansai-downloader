@@ -202,7 +202,8 @@ app.get('/api/debug-dl', (req, res) => {
     try { poToken = decodeURIComponent(poToken.trim()); } catch(e) {}
     try { visitorData = decodeURIComponent(visitorData.trim()); } catch(e) {}
     const hasFullPoTokenConfig = !!(poToken && visitorData);
-    const useYtFallback = !hasFullPoTokenConfig;
+    const forceFallback = req.query.fallback === 'true';
+    const useYtFallback = !hasFullPoTokenConfig || forceFallback;
 
     let formatStr = 'bestvideo[height<=1080]+bestaudio/18/b/best';
 
