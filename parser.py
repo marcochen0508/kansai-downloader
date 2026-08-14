@@ -35,7 +35,7 @@ def _get_cookie_opts(url=''):
                     return {'cookiefile': _IG_COOKIE_FILE}
         except Exception:
             pass
-    if is_yt and os.path.isfile(_YT_COOKIE_FILE) and os.environ.get('YT_PO_TOKEN'):
+    if is_yt and os.path.isfile(_YT_COOKIE_FILE):
         return {'cookiefile': _YT_COOKIE_FILE}
     return {}
 

@@ -484,9 +484,15 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
 
     // Platform-specific extractor args
     if (isYouTubeUrl) {
-        console.log('[YT] Android VR / Android client mode (no cookies required)');
-        args.push('--extractor-args', 'youtube:player_client=android_vr,android');
-        args.push('--no-cookies');
+        args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
+        if (fs.existsSync(ytCookieFilePath)) {
+            console.log('[YT] Using restored YouTube cookies');
+            args.push('--cookies', ytCookieFilePath);
+        } else {
+            console.log('[YT] No cookies found, using android_vr fallback');
+            args.push('--extractor-args', 'youtube:player_client=android_vr,android');
+            args.push('--no-cookies');
+        }
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
