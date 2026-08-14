@@ -332,7 +332,7 @@ try {
     console.log('ffmpeg-static not found, using default system ffmpeg');
 }
 
-function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', type = 'video', req = null) {
+function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', type = 'video', req = null, forceFallback = false) {
     let targetUrl = webpageUrl || '';
     if (!targetUrl || targetUrl.includes('googlevideo.com') || targetUrl.includes('.m4s')) {
         if (url && !url.includes('googlevideo.com') && !url.includes('.m4s')) {
@@ -356,8 +356,8 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const poToken = process.env.YT_PO_TOKEN;
     const visitorData = process.env.YT_VISITOR_DATA;
     const hasFullPoTokenConfig = !!(poToken && visitorData);
-    // useYtFallback = true means: use android_vr + format 18 (no PO Token)
-    const useYtFallback = isYouTubeUrl && !hasFullPoTokenConfig;
+    // useYtFallback = true means: use tv/android_vr + format 18 (no PO Token or forced fallback)
+    const useYtFallback = isYouTubeUrl && (!hasFullPoTokenConfig || forceFallback);
 
     let formatStr;
     if (useYtFallback) {
@@ -505,7 +505,13 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
             console.error(`ytdlp exit code (${code}), stderr:`, stderrData);
             cleanup();
 
-            // FALLBACK: If yt-dlp fails on Cloud IP, fallback to streaming direct CDN url (only if direct media link)
+            // FALLBACK 1: If YouTube PO Token mode failed, automatically retry with tv/android_vr fallback
+            if (isYouTubeUrl && !useYtFallback && !res.headersSent) {
+                console.log('[YT] PO Token mode failed, auto-retrying with tv/android_vr fallback mode...');
+                return downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId, type, req, true);
+            }
+
+            // FALLBACK 2: If yt-dlp fails on Cloud IP, fallback to streaming direct CDN url (only if direct media link)
             const isDirectCdnUrl = url && (url.includes('googlevideo.com') || url.includes('.mp4') || url.includes('.m4s') || url.includes('fbcdn') || url.includes('cdninstagram'));
             if (isDirectCdnUrl && !res.headersSent) {
                 console.log('yt-dlp failed, falling back to direct stream via fetchAndStream for:', url);
