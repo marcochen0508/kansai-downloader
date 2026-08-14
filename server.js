@@ -141,44 +141,6 @@ function setContentDisposition(res, filename) {
     res.setHeader('Content-Disposition', `attachment; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`);
 }
 
-// API: Download Handler with yt-dlp Video+Audio Merge & Headers Proxy
-app.get('/api/download', async (req, res) => {
-    const { url, filename, type, webpageUrl, formatId: rawFormatId } = req.query;
-    const formatId = rawFormatId || '';
-
-    // Prioritize real webpage URL over raw CDN stream URL (googlevideo.com) for yt-dlp extraction
-    let targetWebpageUrl = webpageUrl || '';
-    if (!targetWebpageUrl && url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('instagram.com') || url.includes('facebook.com') || url.includes('bilibili.com'))) {
-        targetWebpageUrl = url;
-    }
-
-    const safeFilename = (filename || 'download.mp4').replace(/[\\/:*?"<>|]/g, '_');
-    const mediaUrl = url || targetWebpageUrl;
-
-    if (!mediaUrl && !targetWebpageUrl) {
-        return res.status(400).send('缺少下載連結');
-    }
-
-    const isYouTube = (targetWebpageUrl && (targetWebpageUrl.includes('youtube.com') || targetWebpageUrl.includes('youtu.be'))) ||
-                      (mediaUrl && (mediaUrl.includes('googlevideo.com') || mediaUrl.includes('youtube.com') || mediaUrl.includes('youtu.be') || mediaUrl.includes('ssyoutube.com')));
-    const isBilibili = (targetWebpageUrl && (targetWebpageUrl.includes('bilibili.com') || targetWebpageUrl.includes('b23.tv'))) || (mediaUrl && mediaUrl.includes('.m4s'));
-    const isInstagram = targetWebpageUrl && (targetWebpageUrl.includes('instagram.com') || targetWebpageUrl.includes('instagr.am'));
-    const isFacebookDash = targetWebpageUrl &&
-        (targetWebpageUrl.includes('facebook.com') || targetWebpageUrl.includes('fb.watch') || targetWebpageUrl.includes('fb.com')) &&
-        formatId !== 'direct';
-
-    // Route platforms requiring audio+video merging or fresh backend stream extraction through yt-dlp
-    const requiresYtdlpProxy = isYouTube || isBilibili || isInstagram || isFacebookDash;
-
-    if (type === 'image') {
-        setContentDisposition(res, safeFilename);
-        res.setHeader('Content-Type', 'image/jpeg');
-        return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
-    }
-
-    const isDirectStream = (formatId === 'direct' || formatId === 'bestaudio');
-    const isDirectCdnUrl = !isYouTube && isDirectStream && (mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('twimg') || mediaUrl.includes('tiktokcdn'));
-
 // Universal High-Availability YouTube Stream Resolver (Bypasses all cloud IP bot-guards)
 function resolveYoutubeDirectStream(videoUrl, targetFormat = '1080') {
     return new Promise((resolve, reject) => {
@@ -223,6 +185,49 @@ function resolveYoutubeDirectStream(videoUrl, targetFormat = '1080') {
         req.on('error', reject);
     });
 }
+
+// Download API - Unified download & audio extractor
+app.get('/api/download', (req, res) => {
+    const { url, filename, type, formatId } = req.query;
+    let mediaUrl = url;
+    let targetWebpageUrl = req.query.webpageUrl || '';
+
+    if (!mediaUrl && !targetWebpageUrl) {
+        return res.status(400).send('No URL provided');
+    }
+
+    if (!targetWebpageUrl && url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('instagram.com') || url.includes('facebook.com') || url.includes('bilibili.com'))) {
+        targetWebpageUrl = url;
+    }
+
+    let defaultExt = type === 'audio' ? 'mp3' : (type === 'image' ? 'jpg' : 'mp4');
+    let safeFilename = (filename || 'download.' + defaultExt).replace(/[\\/:*?"<>|]/g, '_');
+
+    const isYouTube = targetWebpageUrl && (targetWebpageUrl.includes('youtube.com') || targetWebpageUrl.includes('youtu.be'));
+    const isBilibili = targetWebpageUrl && (targetWebpageUrl.includes('bilibili.com') || targetWebpageUrl.includes('b23.tv'));
+    const isInstagram = targetWebpageUrl && (targetWebpageUrl.includes('instagram.com') || targetWebpageUrl.includes('instagr.am'));
+    const isFacebook = targetWebpageUrl && (targetWebpageUrl.includes('facebook.com') || targetWebpageUrl.includes('fb.watch') || targetWebpageUrl.includes('fb.com'));
+    const isFacebookDash = isFacebook && formatId && formatId !== 'direct';
+
+    const requiresYtdlpProxy = isYouTube || isBilibili || isInstagram || isFacebookDash;
+
+    if (type === 'image') {
+        setContentDisposition(res, safeFilename);
+        res.setHeader('Content-Type', 'image/jpeg');
+        return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
+    }
+
+    const isDirectStream = (formatId === 'direct' || formatId === 'bestaudio');
+    const isDirectCdnUrl = !isYouTube && isDirectStream && (mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('twimg') || mediaUrl.includes('tiktokcdn'));
+
+    // Direct CDN bypass for Instagram / Facebook progressive URLs
+    if (!isYouTube && (isDirectCdnUrl || (isDirectStream && type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http')))) {
+        console.log('[Stream] Direct CDN stream bypass:', mediaUrl.substring(0, 80));
+        const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
+        setContentDisposition(res, safeFilename);
+        res.setHeader('Content-Type', contentType);
+        return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
+    }
 
     // High-speed direct resolver for YouTube (100% bypass of cloud IP bot checks)
     if (isYouTube) {
