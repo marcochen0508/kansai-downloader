@@ -446,15 +446,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         '--socket-timeout', '30',
         '--buffer-size', '16k',
         '--concurrent-fragments', '1',
-        '--no-check-certificates'
+        '--no-check-certificates',
+        '--impersonate', 'chrome'
     ];
 
-    if (useYtFallback) {
-        // Format 18 is progressive (video+audio combined) - no merging or extraction needed
-        // Just download as-is; it's already a complete mp4
-        // Explicitly disable cookies to ensure android_vr runs in clean unauthenticated mode
-        args.push('--no-cookies');
-    } else if (isAudio) {
+    if (isAudio) {
         args.push('-x', '--audio-format', 'mp3');
     } else {
         args.push('--merge-output-format', 'mp4');
@@ -468,16 +464,11 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     }
 
     // Platform-specific extractor args
-    if (useYtFallback) {
-        console.log('[YT] tv,android_vr,mweb fallback mode');
-        // --js-runtimes is CRITICAL: yt-dlp needs a JS runtime to solve YouTube's n-signature challenge.
+    if (isYouTubeUrl) {
+        console.log('[YT] Impersonate Chrome + android_vr mode');
         args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
-        args.push('--extractor-args', 'youtube:player_client=tv,android_vr,mweb');
+        args.push('--extractor-args', 'youtube:player_client=android_vr');
         args.push('--no-cookies');
-    } else if (isYouTubeUrl && hasFullPoTokenConfig) {
-        console.log('[YT] PO Token mode (tv,android_vr,web,mweb + po_token)');
-        args.push('--extractor-args', `youtube:po_token=web+${visitorData}:${poToken};player_client=tv,android_vr,web,mweb`);
-        args.push('--js-runtimes', `node:${NODE_EXEC_PATH}`);
     } else if (targetUrl.includes('bilibili')) {
         args.push('--add-header', 'Referer:https://www.bilibili.com/');
     } else if (targetUrl.includes('instagram')) {
