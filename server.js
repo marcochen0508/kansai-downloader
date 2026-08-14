@@ -353,16 +353,19 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     const isFacebookUrl = targetUrl.includes('facebook') || targetUrl.includes('fb.watch') || targetUrl.includes('fbcdn');
 
     // YouTube mode detection: require BOTH PO Token AND Visitor Data to enable web client mode
-    const poToken = process.env.YT_PO_TOKEN || '';
-    const visitorData = process.env.YT_VISITOR_DATA || '';
+    let poToken = process.env.YT_PO_TOKEN || '';
+    let visitorData = process.env.YT_VISITOR_DATA || '';
+    try { poToken = decodeURIComponent(poToken.trim()); } catch(e) {}
+    try { visitorData = decodeURIComponent(visitorData.trim()); } catch(e) {}
+
     const hasFullPoTokenConfig = !!(poToken && visitorData);
     // useYtFallback = true means: use android_vr + format 18 (no PO Token or forced fallback)
     const useYtFallback = isYouTubeUrl && (!hasFullPoTokenConfig || forceFallback);
 
     let formatStr;
     if (useYtFallback) {
-        // android_vr + progressive 360p: the only approach that reliably works from cloud IPs
-        formatStr = '18';
+        // android_vr + progressive 360p / best: the approach that reliably works from cloud IPs
+        formatStr = '18/b/best';
     } else if (isAudio) {
         formatStr = 'bestaudio/best';
     } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
