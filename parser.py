@@ -1038,6 +1038,7 @@ def scrape_youtube_direct(url):
     except Exception:
         pass
     
+    match = re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});</script>', html_text) or re.search(r'ytInitialPlayerResponse\s*=\s*(\{.*?\});', html_text)
     if not match:
         return {"success": False, "error": "Could not find player response"}
     
