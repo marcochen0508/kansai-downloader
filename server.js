@@ -39,14 +39,18 @@ if (process.env.YT_COOKIES_B64) {
     console.warn('[Cookie] WARNING: yt_cookies.txt not found and YT_COOKIES_B64 not set - YouTube bot-check may fail');
 }
 
-if (process.env.IG_COOKIES_B64 && !fs.existsSync(igCookieFilePath)) {
+if (process.env.IG_COOKIES_B64) {
     try {
         const decoded = Buffer.from(process.env.IG_COOKIES_B64, 'base64').toString('utf-8');
         fs.writeFileSync(igCookieFilePath, decoded, 'utf-8');
-        console.log('[Cookie] ig_cookies.txt restored from IG_COOKIES_B64 env var');
+        console.log('[Cookie] ig_cookies.txt written from IG_COOKIES_B64 env var');
     } catch (e) {
-        console.warn('[Cookie] Failed to restore ig_cookies.txt:', e.message);
+        console.warn('[Cookie] Failed to write ig_cookies.txt:', e.message);
     }
+} else if (fs.existsSync(igCookieFilePath)) {
+    console.log('[Cookie] ig_cookies.txt already exists on disk');
+} else {
+    console.warn('[Cookie] WARNING: ig_cookies.txt not found and IG_COOKIES_B64 not set - Instagram analysis may fail');
 }
 
 function getPythonCmd() {
