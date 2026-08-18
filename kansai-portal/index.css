@@ -235,13 +235,12 @@ body {
     align-items: flex-start;
 }
 .platform-card:hover, .platform-card.active {
-    border-color: var(--card-color, var(--primary));
+    border-color: #f43f5e;
     transform: translateY(-3px);
     box-shadow: var(--shadow-md);
 }
 .platform-card.active {
     background: #fffafa;
-    border-color: #f43f5e;
 }
 
 .platform-icon-wrap {
@@ -292,9 +291,14 @@ body {
     gap: 5px;
     font-size: 0.82rem;
     font-weight: 500;
-    color: var(--card-color, var(--primary));
+    color: #e11d48;
     margin-top: auto;
     letter-spacing: 0.1px;
+    transition: all 0.2s ease;
+}
+.platform-card:hover .card-badge {
+    color: #be123c;
+    transform: translateX(3px);
 }
 
 /* Destination Drawer / Panel */
