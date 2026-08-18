@@ -37,20 +37,26 @@ const PLATFORMS_DATA = [
         desc: 'Shorts 短片・1080p 影片・MP3 音訊',
         tools: [
             {
-                name: 'Y2Mate (YouTube 專用)',
-                tag: '🔥 免登入無限次',
+                name: 'VD6S (YouTube 繁中首選)',
+                tag: '🔥 繁中推薦',
+                desc: '支援 1080p、4K 影片與 MP3 下載，純繁體中文介面、極速且無煩人彈窗廣告',
+                url: 'https://vd6s.net/zh-tw4/'
+            },
+            {
+                name: 'Y2Mate (YouTube 備用)',
+                tag: '免登入無限次',
                 desc: '專門下載 YouTube 影片 (1080p/720p) 與 MP3 音樂轉換，無次數限制',
                 url: 'https://y2mate.is/'
             },
             {
                 name: 'OnlyMP3 (純音樂 MP3)',
-                tag: '🔥 免登入無限次',
+                tag: '純音樂 320k',
                 desc: '專門將 YouTube 影片一鍵轉換為 320kbps 高音質 MP3 音樂',
                 url: 'https://en.onlymp3.to/'
             },
             {
                 name: 'SaveFrom (YouTube 專區)',
-                tag: '繁體中文',
+                tag: '經典備用',
                 desc: '經典 YouTube 影片快速保存工具，免登入直接下載',
                 url: 'https://zh.savefrom.net/1-how-to-download-youtube-video.html'
             }
