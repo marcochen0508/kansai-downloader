@@ -28,9 +28,15 @@
     <div class="app-container">
         <!-- Header Section -->
         <header class="header">
-            <div class="badge-pill">
-                <span class="pulse-dot"></span>
-                <span>🌸 日本關西旅遊互助群 專用神器</span>
+            <div class="header-top-row">
+                <div class="badge-pill">
+                    <span class="pulse-dot"></span>
+                    <span>🌸 日本關西旅遊互助群 專用神器</span>
+                </div>
+                <button type="button" class="btn-header-install" id="btnHeaderInstall" style="display: none;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+                    <span>加到桌面</span>
+                </button>
             </div>
             <h1 class="main-title">
                 全平台社群影音 <span class="gradient-text">下載導航站</span>
@@ -92,6 +98,47 @@
                 </div>
             </div>
         </section>
+
+        <!-- PWA Add to Home Screen Modal -->
+        <div id="pwaModalOverlay" class="pwa-modal-overlay" style="display: none;">
+            <div class="pwa-modal-card">
+                <button type="button" class="pwa-modal-close" id="btnPwaClose">&times;</button>
+                <div class="pwa-modal-header">
+                    <img src="apple-touch-icon.png" class="pwa-modal-icon" alt="App Icon">
+                    <h3>安裝「關西影音下載導航」</h3>
+                    <p class="pwa-modal-desc">新增至手機主畫面或電腦桌面，享有獨立 App 沉浸體驗、秒開更方便！</p>
+                </div>
+
+                <!-- iOS Safari Guidance -->
+                <div id="pwaIosGuide" class="pwa-guide-box" style="display: none;">
+                    <div class="pwa-step-item">
+                        <span class="pwa-step-num">1</span>
+                        <div class="pwa-step-text">
+                            點擊 Safari 底部工具列的 <strong>「分享」</strong> 圖示
+                            <span class="pwa-inline-icon">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="pwa-step-item">
+                        <span class="pwa-step-num">2</span>
+                        <div class="pwa-step-text">
+                            在選單中向下滑動，選擇 <strong>「加入主畫面 ➕」</strong> 即可完成！
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Android / Desktop Guidance -->
+                <div id="pwaAndroidGuide" class="pwa-guide-box" style="display: none;">
+                    <p>點擊下方按鈕即可一鍵新增至手機桌面或應用程式清單：</p>
+                </div>
+
+                <div class="pwa-modal-actions">
+                    <button type="button" class="btn-pwa-action" id="btnPwaInstall">立即新增到桌面</button>
+                    <button type="button" class="btn-pwa-dismiss" id="btnPwaDismiss">稍後再說</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Footer -->
         <footer class="footer">

@@ -87,6 +87,14 @@ body {
     text-align: center;
     margin-bottom: 32px;
 }
+.header-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
 .badge-pill {
     display: inline-flex;
     align-items: center;
@@ -99,7 +107,26 @@ body {
     font-weight: 500;
     color: #e11d48;
     box-shadow: var(--shadow-sm);
-    margin-bottom: 14px;
+}
+.btn-header-install {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #fecdd3;
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: #e11d48;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+.btn-header-install:hover {
+    background: #fff1f2;
+    border-color: #f43f5e;
+    transform: translateY(-1px);
 }
 .pulse-dot {
     width: 8px;
@@ -463,6 +490,153 @@ body {
     font-size: 0.78rem;
     color: var(--text-light);
     margin-top: 4px;
+}
+
+/* PWA Modal Overlay */
+.pwa-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: pwaFadeIn 0.25s ease;
+}
+@keyframes pwaFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.pwa-modal-card {
+    background: #ffffff;
+    border-radius: 20px;
+    max-width: 400px;
+    width: 100%;
+    padding: 28px 24px;
+    position: relative;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+    text-align: center;
+    animation: pwaPopUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes pwaPopUp {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.pwa-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: #f1f5f9;
+    border: none;
+    font-size: 1.3rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    transition: all 0.2s ease;
+}
+.pwa-modal-close:hover {
+    background: #fee2e2;
+    color: #e11d48;
+}
+.pwa-modal-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(244, 63, 94, 0.15);
+    margin-bottom: 12px;
+}
+.pwa-modal-header h3 {
+    font-size: 1.18rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+.pwa-modal-desc {
+    font-size: 0.86rem;
+    color: #64748b;
+    line-height: 1.45;
+    margin-bottom: 18px;
+}
+.pwa-guide-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-align: left;
+    margin-bottom: 20px;
+    font-size: 0.86rem;
+    color: #334155;
+}
+.pwa-step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.pwa-step-item:last-child {
+    margin-bottom: 0;
+}
+.pwa-step-num {
+    background: #ffe4e6;
+    color: #e11d48;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.78rem;
+    flex-shrink: 0;
+}
+.pwa-inline-icon {
+    display: inline-flex;
+    vertical-align: middle;
+    color: #0284c7;
+    margin-left: 2px;
+}
+.pwa-modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.btn-pwa-action {
+    background: var(--primary-gradient);
+    color: #ffffff;
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(244, 63, 94, 0.3);
+    transition: all 0.2s ease;
+}
+.btn-pwa-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(244, 63, 94, 0.4);
+}
+.btn-pwa-dismiss {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 6px;
+    transition: color 0.2s ease;
+}
+.btn-pwa-dismiss:hover {
+    color: #64748b;
 }
 
 /* Mobile Responsive */
