@@ -14,3 +14,5 @@ scratch/
 *.webm
 *.part
 *.ytdl
+bin/
+*.exe
