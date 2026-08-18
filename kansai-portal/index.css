@@ -245,16 +245,33 @@ body {
 }
 
 .platform-icon-wrap {
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
     border-radius: 12px;
-    background: #f8fafc;
-    border: 1px solid #f1f5f9;
+    background: #ffffff;
+    border: 1px solid #eef2f6;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
     margin-bottom: 12px;
+    transition: transform 0.2s ease;
+}
+.platform-card:hover .platform-icon-wrap {
+    transform: scale(1.08);
+}
+.platform-icon-wrap svg {
+    display: block;
+}
+.panel-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.panel-icon svg {
+    display: block;
+    width: 38px;
+    height: 38px;
 }
 .platform-name {
     font-size: 1.05rem;
