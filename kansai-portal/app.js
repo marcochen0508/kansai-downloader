@@ -212,10 +212,9 @@ const panelIcon = document.getElementById('panelIcon');
 const closePanelBtn = document.getElementById('closePanelBtn');
 const platformSearch = document.getElementById('platformSearch');
 
-let activePlatformId = null;
-
-// Initialize Platform Cards
+// Initialize Platform Cards with Direct Linking
 function renderPlatforms(filterQuery = '') {
+    if (!platformGrid) return;
     platformGrid.innerHTML = '';
     const filtered = PLATFORMS_DATA.filter(p => {
         if (!filterQuery) return true;
@@ -235,79 +234,52 @@ function renderPlatforms(filterQuery = '') {
     }
 
     filtered.forEach(platform => {
-        const card = document.createElement('div');
-        card.className = `platform-card ${activePlatformId === platform.id ? 'active' : ''}`;
+        const primaryTool = platform.tools[0];
+        const backupTools = platform.tools.slice(1);
+        const shortPrimaryName = primaryTool.name.replace(/ \(.*?\)/, '');
+
+        const card = document.createElement('a');
+        card.className = 'platform-card';
         card.style.setProperty('--card-color', platform.color);
         card.id = `card-${platform.id}`;
+        card.href = primaryTool.url;
+        card.target = '_blank';
+        card.rel = 'noopener noreferrer';
+        card.title = `點擊直接開啟 ${primaryTool.name}`;
 
         card.innerHTML = `
-            <div class="platform-icon-wrap">${platform.icon}</div>
+            <div class="card-header-row">
+                <div class="platform-icon-wrap">${platform.icon}</div>
+                <span class="direct-pill">⚡ 一鍵直達</span>
+            </div>
             <div class="platform-name">${platform.name}</div>
             <div class="platform-desc">${platform.desc}</div>
-            <div class="card-badge">
-                <span>選擇專用下載站</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <div class="card-primary-action">
+                <span class="action-btn-text">前往 ${shortPrimaryName} 下載</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
             </div>
+            ${backupTools.length > 0 ? `
+            <div class="backup-tools-row">
+                <span class="backup-label">備用：</span>
+                ${backupTools.map(bt => `
+                    <button type="button" class="backup-chip" data-url="${bt.url}" title="${bt.desc}">
+                        ${bt.name.replace(/ \(.*?\)/, '')} ↗
+                    </button>
+                `).join('')}
+            </div>
+            ` : ''}
         `;
 
-        card.addEventListener('click', (e) => {
-            e.preventDefault();
-            selectPlatform(platform);
+        // Handle backup chip clicks independently
+        card.querySelectorAll('.backup-chip').forEach(chip => {
+            chip.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(chip.dataset.url, '_blank', 'noopener,noreferrer');
+            });
         });
 
         platformGrid.appendChild(card);
-    });
-}
-
-// Select and open panel for a platform
-function selectPlatform(platform) {
-    activePlatformId = platform.id;
-
-    // Update active class on cards
-    document.querySelectorAll('.platform-card').forEach(c => c.classList.remove('active'));
-    const selectedCard = document.getElementById(`card-${platform.id}`);
-    if (selectedCard) selectedCard.classList.add('active');
-
-    // Populate panel data
-    panelIcon.innerHTML = platform.icon;
-    panelTitle.textContent = `${platform.name} 精選免登入站點`;
-    panelDesc.textContent = `為您推薦目前線上實測 100% 可通、免登入的 ${platform.name} 專用下載工具：`;
-
-    destinationGrid.innerHTML = '';
-    platform.tools.forEach(tool => {
-        const link = document.createElement('a');
-        link.className = 'tool-link-card';
-        link.href = tool.url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-
-        link.innerHTML = `
-            <div class="tool-info">
-                <h4>
-                    ${tool.name}
-                    ${tool.tag ? `<span class="tool-badge">${tool.tag}</span>` : ''}
-                </h4>
-                <p>${tool.desc}</p>
-            </div>
-            <div class="tool-arrow">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </div>
-        `;
-
-        destinationGrid.appendChild(link);
-    });
-
-    // Display panel and scroll into view smoothly
-    destinationPanel.style.display = 'block';
-    destinationPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-// Close Panel
-if (closePanelBtn) {
-    closePanelBtn.addEventListener('click', () => {
-        destinationPanel.style.display = 'none';
-        activePlatformId = null;
-        document.querySelectorAll('.platform-card').forEach(c => c.classList.remove('active'));
     });
 }
 
