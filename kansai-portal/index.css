@@ -244,137 +244,176 @@ body {
 /* Platform Grid */
 .platform-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 30px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
+    margin-bottom: 36px;
 }
 .platform-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 18px 18px 16px;
+    background: #ffffff;
+    border: 1px solid #eef2f6;
+    border-radius: 18px;
+    padding: 20px;
     cursor: pointer;
-    box-shadow: var(--shadow-sm);
-    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
     text-decoration: none;
     color: inherit;
+    overflow: hidden;
+}
+.platform-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--card-theme, #f43f5e);
+    opacity: 0;
+    transition: opacity 0.25s ease;
 }
 .platform-card:hover {
-    border-color: var(--card-color, #f43f5e);
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
+    transform: translateY(-4px);
+    border-color: rgba(226, 232, 240, 0.8);
+    box-shadow: 0 14px 28px -6px rgba(15, 23, 42, 0.09), 0 0 0 1px var(--card-theme);
+}
+.platform-card:hover::before {
+    opacity: 1;
 }
 
-.card-header-row {
+.card-top-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 .platform-icon-wrap {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: #ffffff;
-    border: 1px solid #eef2f6;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px solid #edf2f7;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s ease;
+    transition: transform 0.25s ease, background-color 0.25s ease;
 }
 .platform-card:hover .platform-icon-wrap {
-    transform: scale(1.08);
+    transform: scale(1.06);
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 .platform-icon-wrap svg {
     display: block;
 }
-.direct-pill {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #e11d48;
-    background: #ffe4e6;
-    padding: 3px 8px;
-    border-radius: 20px;
-    border: 1px solid #fecdd3;
-    letter-spacing: 0.2px;
-}
 
-.platform-name {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: var(--text-title);
-    margin-bottom: 4px;
-}
-.platform-desc {
-    font-size: 0.82rem;
-    font-weight: 400;
-    color: #64748b;
-    margin-bottom: 14px;
-    line-height: 1.45;
-}
-
-.card-primary-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: var(--card-color, #e11d48);
-    color: #ffffff;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-top: auto;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-.platform-card:hover .card-primary-action {
-    filter: brightness(1.08);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
-}
-.action-btn-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.backup-tools-row {
+.card-arrow-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #94a3b8;
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-    padding-top: 8px;
-    border-top: 1px dashed #e2e8f0;
+    justify-content: center;
+    transition: all 0.25s ease;
+}
+.platform-card:hover .card-arrow-badge {
+    background: var(--card-theme, #f43f5e);
+    color: #ffffff;
+    transform: translate(2px, -2px);
+}
+
+.card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+.platform-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+    letter-spacing: -0.2px;
+}
+.platform-desc {
+    font-size: 0.84rem;
+    font-weight: 400;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     width: 100%;
-    font-size: 0.76rem;
+    padding-top: 14px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 0.8rem;
 }
-.backup-label {
-    color: #94a3b8;
-    font-weight: 500;
-}
-.backup-chip {
-    background: #f1f5f9;
+.engine-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
     border: 1px solid #e2e8f0;
-    color: #475569;
-    padding: 2px 7px;
-    border-radius: 6px;
-    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 20px;
+    color: #334155;
+    font-weight: 600;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+}
+.platform-card:hover .engine-badge {
+    background: #ffffff;
+    border-color: var(--card-theme, #e2e8f0);
+    color: var(--card-theme, #0f172a);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+.engine-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+}
+.engine-name {
+    font-weight: 600;
+}
+.engine-action {
+    color: #94a3b8;
     font-size: 0.75rem;
+    font-weight: 400;
+}
+.platform-card:hover .engine-action {
+    color: inherit;
+}
+
+.backup-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.backup-link-btn {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 6px;
     font-weight: 500;
     transition: all 0.15s ease;
+    text-decoration: none;
 }
-.backup-chip:hover {
-    background: #e2e8f0;
+.backup-link-btn:hover {
     color: #0f172a;
-    border-color: #cbd5e1;
+    background: #f1f5f9;
 }
 
 /* Destination Drawer / Panel */

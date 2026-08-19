@@ -240,7 +240,7 @@ function renderPlatforms(filterQuery = '') {
 
         const card = document.createElement('a');
         card.className = 'platform-card';
-        card.style.setProperty('--card-color', platform.color);
+        card.style.setProperty('--card-theme', platform.color);
         card.id = `card-${platform.id}`;
         card.href = primaryTool.url;
         card.target = '_blank';
@@ -248,34 +248,40 @@ function renderPlatforms(filterQuery = '') {
         card.title = `點擊直接開啟 ${primaryTool.name}`;
 
         card.innerHTML = `
-            <div class="card-header-row">
+            <div class="card-top-row">
                 <div class="platform-icon-wrap">${platform.icon}</div>
-                <span class="direct-pill">⚡ 一鍵直達</span>
+                <div class="card-arrow-badge" title="前往下載">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+                </div>
             </div>
-            <div class="platform-name">${platform.name}</div>
-            <div class="platform-desc">${platform.desc}</div>
-            <div class="card-primary-action">
-                <span class="action-btn-text">前往 ${shortPrimaryName} 下載</span>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            <div class="card-body">
+                <div class="platform-name">${platform.name}</div>
+                <div class="platform-desc">${platform.desc}</div>
             </div>
-            ${backupTools.length > 0 ? `
-            <div class="backup-tools-row">
-                <span class="backup-label">備用：</span>
-                ${backupTools.map(bt => `
-                    <button type="button" class="backup-chip" data-url="${bt.url}" title="${bt.desc}">
-                        ${bt.name.replace(/ \(.*?\)/, '')} ↗
-                    </button>
-                `).join('')}
+            <div class="card-footer">
+                <div class="engine-badge">
+                    <span class="engine-dot"></span>
+                    <span class="engine-name">${shortPrimaryName}</span>
+                    <span class="engine-action">直達 ↗</span>
+                </div>
+                ${backupTools.length > 0 ? `
+                <div class="backup-group">
+                    ${backupTools.map(bt => `
+                        <button type="button" class="backup-link-btn" data-url="${bt.url}" title="${bt.desc}">
+                            備用: ${bt.name.replace(/ \(.*?\)/, '')}
+                        </button>
+                    `).join('')}
+                </div>
+                ` : ''}
             </div>
-            ` : ''}
         `;
 
         // Handle backup chip clicks independently
-        card.querySelectorAll('.backup-chip').forEach(chip => {
-            chip.addEventListener('click', (e) => {
+        card.querySelectorAll('.backup-link-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                window.open(chip.dataset.url, '_blank', 'noopener,noreferrer');
+                window.open(btn.dataset.url, '_blank', 'noopener,noreferrer');
             });
         });
 
