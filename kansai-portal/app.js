@@ -23,22 +23,16 @@ const PLATFORMS_DATA = [
         desc: 'Reels 短影音・貼文多圖・限時動態',
         tools: [
             {
-                name: 'FastDl (iGram)',
-                tag: '🔥 免登入無限次',
-                desc: '支援 IG 貼文多圖輪播相簿 (Carousel) 與 1080p 影片原檔提取，完全免登入',
+                name: 'SaveClip (IG 繁中首選)',
+                tag: '🔥 繁中低廣告・推薦',
+                desc: '支援 IG Reels 短影音、貼文多圖輪播相簿與限動下載，介面清爽無彈窗',
+                url: 'https://saveclip.app/zh-tw8'
+            },
+            {
+                name: 'FastDl (iGram 備用)',
+                tag: '免登入備用',
+                desc: '支援 IG 貼文多圖輪播相簿 (Carousel) 與 1080p 影片原檔提取',
                 url: 'https://fastdl.app/'
-            },
-            {
-                name: 'SSSInstagram',
-                tag: '🔥 免登入無限次',
-                desc: '免登入！直接貼上 IG 網址快速保存 Reels 短影音、貼文照片與限動',
-                url: 'https://sssinstagram.com/'
-            },
-            {
-                name: 'SaveFrom (IG 專區)',
-                tag: '免登入經典',
-                desc: '全球老牌影音下載工具，支援 Instagram 影片直接提取',
-                url: 'https://zh.savefrom.net/'
             }
         ]
     },
@@ -70,12 +64,6 @@ const PLATFORMS_DATA = [
                 tag: '純音樂 320k',
                 desc: '專門將 YouTube 影片一鍵轉換為 320kbps 高音質 MP3 音樂',
                 url: 'https://en.onlymp3.to/'
-            },
-            {
-                name: 'SaveFrom (YouTube 專區)',
-                tag: '經典備用',
-                desc: '經典 YouTube 影片快速保存工具，免登入直接下載',
-                url: 'https://zh.savefrom.net/1-how-to-download-youtube-video.html'
             }
         ]
     },
@@ -114,16 +102,16 @@ const PLATFORMS_DATA = [
         desc: '脆 Threads 影音貼文・多圖原檔下載',
         tools: [
             {
-                name: 'ThreadsDownloader',
-                tag: '🔥 免登入無限次',
-                desc: '專為 Threads 打造，一鍵保存高清影片、圖片與音訊',
-                url: 'https://threadsdownloader.io/'
+                name: 'Throk AI (Threads 無廣告首選)',
+                tag: '✨ 極簡清爽・無廣告',
+                desc: '超乾淨無干擾介面，一鍵提取 Threads 高畫質影片與相片原檔',
+                url: 'https://www.throk.ai/tools/threads-downloader'
             },
             {
-                name: 'ThreadsPhotoDownloader',
-                tag: '🔥 免登入無限次',
-                desc: '支援下載 Threads 貼文內的所有高清原圖與多張照片',
-                url: 'https://threadsphotodownloader.com/'
+                name: 'ThreadsDownloader (備用)',
+                tag: '免登入備用',
+                desc: '專為 Threads 打造，一鍵保存高清影片、圖片與音訊',
+                url: 'https://threadsdownloader.io/'
             }
         ]
     },
@@ -138,16 +126,16 @@ const PLATFORMS_DATA = [
         desc: 'FB 影片・Reels 短影音・公開社團影音',
         tools: [
             {
-                name: 'SnapSave',
-                tag: '🔥 支援 1080p/4K',
-                desc: 'Facebook 高清影片下載神器，支援 Full HD 與 4K 畫質，免登入',
-                url: 'https://snapsave.app/'
+                name: 'FDownloader (FB 繁中高清首選)',
+                tag: '🔥 繁中高清・推薦',
+                desc: '支援 1080p/2K/4K 原畫質影片與 FB Reels，繁體中文介面、下載速度快',
+                url: 'https://fdownloader.net/zh-tw'
             },
             {
-                name: 'SaveFrom (FB 專區)',
-                tag: '經典穩定',
-                desc: '老牌 Facebook 公開影片與 Reels 下載工具',
-                url: 'https://zh.savefrom.net/'
+                name: 'SnapSave (備用)',
+                tag: '高清備用',
+                desc: 'Facebook 高清影片下載神器，支援 Full HD 與 4K 畫質，免登入',
+                url: 'https://snapsave.app/'
             }
         ]
     },
