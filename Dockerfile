@@ -17,7 +17,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt --break-system-packages || p
 
 COPY . .
 
-ENV PORT=3000
-EXPOSE 3000
+ENV PORT=7860
+EXPOSE 7860
 
 CMD ["node", "server.js"]

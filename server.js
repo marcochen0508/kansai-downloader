@@ -20,6 +20,11 @@ if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
 }
 
+// Health check endpoint for monitoring / keep-alive
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Restore YouTube cookies from environment variable (base64 encoded) if not present on disk
 // This allows cloud deployments (Render/Zeabur) to have cookies without committing them to git
 const ytCookieFilePath = path.join(__dirname, 'yt_cookies.txt');
