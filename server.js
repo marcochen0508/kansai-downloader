@@ -899,7 +899,7 @@ app.listen(PORT, () => {
     console.log(`🌸 社群影音與圖文下載系統已啟動：http://localhost:${PORT}`);
 
     // External ping interval (every 5 minutes) to prevent Render free tier sleep
-    const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || 'https://nloader.onrender.com';
+    const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || 'https://kansai-downloader-9jdz.onrender.com';
     setInterval(() => {
         const pingUrl = `${RENDER_EXTERNAL_URL}/api/health`;
         const protocol = pingUrl.startsWith('https') ? https : http;
