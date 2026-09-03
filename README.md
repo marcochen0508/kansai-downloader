@@ -1,3 +1,15 @@
+---
+title: Kansai Downloader
+emoji: 🌸
+colorFrom: pink
+colorTo: red
+sdk: gradio
+sdk_version: 4.44.0
+app_file: app.py
+pinned: false
+license: mit
+---
+
 # 🌸 日本關西旅遊互助群 專用影音圖文下載系統
 
 一款專為社群（如關西旅遊互助群）設計的高顏值、全平台社群影音與圖文下載系統。支援 **YouTube、Instagram、Facebook、Threads、X (Twitter)、Bilibili、TikTok/抖音、小紅書、Pinterest** 等主流平台。
@@ -9,19 +21,6 @@
 - 📜 **內文一鍵複製**：貼文與心得說明文字一鍵複製到剪貼簿。
 - 🛡️ **反防盜鏈中繼引擎**：內建 Proxy 圖像中繼與請求偽裝，避免第三方平台防盜鏈阻擋。
 - 🏷️ **乾淨繁體中文檔名**：自動過濾無效英數 ID，生成語意化繁體中文簡短檔名。
-
-## 🚀 部署與啟動說明
-
-### 方案 A：本機與區域網路 (LAN) 一鍵啟動 (推薦)
-1. 在專案根目錄雙擊執行 `一鍵啟動系統.bat`。
-2. 開啟瀏覽器輸入 `http://localhost:3000` 即可使用。
-3. 若需分享給同辦公室或同 Wi-Fi 下的成員使用，將 `localhost` 改為您的本機 IP 即可（例如 `http://192.168.1.100:3000`）。
-
-### 方案 B：免費雲端平台部署 (Zeabur / Render / Railway)
-1. 將本專案上傳至 GitHub 儲存庫。
-2. 登入 [Zeabur](https://zeabur.com) 或 [Render](https://render.com)。
-3. 選擇連結 GitHub 專案，部署環境選擇 Node.js 與 Python。
-4. 部署完成後即可獲得專屬的免費公開網址（例如 `https://your-app.zeabur.app`），提供給全球社友使用！
 
 ---
 © 日本關西旅遊互助群 版權所有
