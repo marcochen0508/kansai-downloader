@@ -3,6 +3,8 @@ const PLATFORMS_DATA = [
     {
         id: 'instagram',
         name: 'Instagram (IG)',
+        domains: ['instagram.com', 'instagr.am', 'ig.me'],
+        aliases: ['ig', 'instagram', '限動', 'reels', '貼文', '限時動態', 'ig reels'],
         icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none">
             <defs>
                 <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
@@ -39,6 +41,8 @@ const PLATFORMS_DATA = [
     {
         id: 'youtube',
         name: 'YouTube',
+        domains: ['youtube.com', 'youtu.be'],
+        aliases: ['yt', 'youtube', 'shorts', 'mp3', '油管', 'yt shorts', 'youtube shorts'],
         icon: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none">
             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z" fill="#FF0000"/>
             <polygon points="9.545,15.568 15.818,12 9.545,8.432" fill="#FFFFFF"/>
@@ -64,6 +68,8 @@ const PLATFORMS_DATA = [
     {
         id: 'tiktok',
         name: 'TikTok / 抖音',
+        domains: ['tiktok.com', 'douyin.com', 'iesdouyin.com'],
+        aliases: ['tt', 'tiktok', '抖音', 'douyin', 'tik tok'],
         icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="#000000">
             <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 2.89 3.5 2.76 1.29-.03 2.45-.8 2.93-1.99.27-.6.36-1.27.35-1.93l.05-17.86z"/>
         </svg>`,
@@ -88,6 +94,8 @@ const PLATFORMS_DATA = [
     {
         id: 'threads',
         name: 'Threads',
+        domains: ['threads.net', 'threads.com'],
+        aliases: ['threads', '脆', 'th'],
         icon: `<svg width="26" height="26" viewBox="0 0 192 192" fill="#000000">
             <path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.481 72.7303C80.8933 64.5126 89.2892 61.127 97.222 61.127C97.3005 61.127 97.379 61.127 97.4574 61.127C107.562 61.1914 117.864 67.2497 122.581 81.3323C114.778 80.0898 106.326 79.7997 97.222 80.4705C66.8624 82.7099 49.208 99.4144 50.8407 121.654C52.4172 143.125 70.8943 154.269 92.1793 154.269C110.74 154.269 123.864 145.459 131.066 137.382C136.079 146.467 144.137 151.785 156.402 151.785C168.04 151.785 178.694 144.606 182.261 130.825L166.425 126.721C164.887 132.662 160.771 135.405 156.402 135.405C148.653 135.405 144.156 128.528 144.156 116.891V114.869C137.493 118.847 129.589 121.737 120.378 123.277C118.431 129.549 113.882 134.409 107.039 136.634C102.138 138.227 96.8687 138.077 92.1793 138.077C78.072 138.077 67.4338 130.686 66.8406 122.585C66.2474 114.484 73.9781 97.9042 98.4116 96.103C105.897 95.5518 113.111 95.8931 119.866 97.0505C121.365 106.183 125.132 113.376 130.569 118.064C130.935 108.109 127.346 99.4042 121.657 93.3079C128.093 91.0776 134.919 90.0766 141.537 88.9883ZM103.885 113.109C97.1082 113.608 90.697 114.502 85.3409 116.636C82.8809 117.616 81.3857 119.206 81.5647 121.642C81.8219 125.143 85.6791 127.604 92.1793 127.604C94.4984 127.604 96.7975 127.319 98.9823 126.61C102.392 125.503 104.708 123.018 105.748 119.689C104.996 117.382 104.351 115.158 103.885 113.109Z"/>
         </svg>`,
@@ -112,6 +120,8 @@ const PLATFORMS_DATA = [
     {
         id: 'facebook',
         name: 'Facebook (FB)',
+        domains: ['facebook.com', 'fb.watch', 'fb.com', 'm.facebook.com'],
+        aliases: ['fb', 'facebook', '臉書', 'fb video', 'fb reels'],
         icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="#1877F2">
             <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
         </svg>`,
@@ -136,6 +146,8 @@ const PLATFORMS_DATA = [
     {
         id: 'xiaohongshu',
         name: '小紅書 RED',
+        domains: ['xiaohongshu.com', 'xhslink.com'],
+        aliases: ['red', 'xhs', '小紅書', '筆記', '小红书'],
         icon: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none">
             <rect width="100" height="100" rx="22" fill="#FF2442"/>
             <text x="50" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="36" fill="#ffffff" text-anchor="middle" letter-spacing="-1">RED</text>
@@ -155,6 +167,8 @@ const PLATFORMS_DATA = [
     {
         id: 'twitter',
         name: 'X (Twitter)',
+        domains: ['x.com', 'twitter.com', 't.co'],
+        aliases: ['x', 'twitter', '推特', 'x.com'],
         icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="#000000">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
         </svg>`,
@@ -179,6 +193,8 @@ const PLATFORMS_DATA = [
     {
         id: 'bilibili',
         name: 'Bilibili 嗶哩嗶哩',
+        domains: ['bilibili.com', 'b23.tv'],
+        aliases: ['bilibili', 'b站', '嗶哩嗶哩', 'bili'],
         icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="#00A1D6">
             <path d="M18.8 3.5l2.2-2.2a1 1 0 0 0-1.4-1.4l-2.7 2.7H7.1L4.4.1A1 1 0 0 0 3 1.5l2.2 2.2C2.3 4.2 0 6.8 0 10v9a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5v-9c0-3.2-2.3-5.8-5.2-6.5zM8 15a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm8 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
         </svg>`,
@@ -204,95 +220,160 @@ const PLATFORMS_DATA = [
 
 // DOM Elements
 const platformGrid = document.getElementById('platformGrid');
-const destinationPanel = document.getElementById('destinationPanel');
-const destinationGrid = document.getElementById('destinationGrid');
-const panelTitle = document.getElementById('panelTitle');
-const panelDesc = document.getElementById('panelDesc');
-const panelIcon = document.getElementById('panelIcon');
-const closePanelBtn = document.getElementById('closePanelBtn');
 const platformSearch = document.getElementById('platformSearch');
 
-// Initialize Platform Cards with Direct Linking
+// Smart URL detection helper
+function detectPlatformFromInput(rawInput) {
+    if (!rawInput) return { isUrl: false, platform: null };
+    const clean = rawInput.trim().toLowerCase();
+    
+    // Check if input is a URL or domain
+    const isUrl = clean.startsWith('http://') || clean.startsWith('https://') || clean.includes('.com') || clean.includes('.net') || clean.includes('.tv') || clean.includes('.be') || clean.includes('.app');
+    
+    for (const platform of PLATFORMS_DATA) {
+        // Domain match (e.g. instagram.com, instagr.am, youtu.be, threads.net)
+        if (platform.domains && platform.domains.some(domain => clean.includes(domain))) {
+            return { isUrl: true, platform };
+        }
+    }
+    
+    return { isUrl, platform: null };
+}
+
+// Initialize Platform Cards with Smart Search & URL Detection
 function renderPlatforms(filterQuery = '') {
     if (!platformGrid) return;
     platformGrid.innerHTML = '';
+    
+    const query = filterQuery.trim();
+    const { isUrl, platform: detectedPlatform } = detectPlatformFromInput(query);
+    
+    // CASE 1: User pasted a specific platform's URL!
+    if (detectedPlatform) {
+        const primaryTool = detectedPlatform.tools[0];
+        
+        // Render Smart Highlight Card
+        const smartBanner = document.createElement('div');
+        smartBanner.className = 'smart-url-card';
+        smartBanner.innerHTML = `
+            <div class="smart-url-header">
+                <span class="smart-url-badge">✨ 已偵測到 ${detectedPlatform.name} 影音連結！</span>
+                <span class="smart-url-tip">點擊下方按鈕或卡片即可直達專用下載器</span>
+            </div>
+            <a href="${primaryTool.url}" target="_blank" rel="noopener noreferrer" class="smart-direct-btn">
+                <span>🚀 點此立即前往 <strong>${primaryTool.name}</strong> 下載此影片</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+            </a>
+        `;
+        platformGrid.appendChild(smartBanner);
+        
+        // Render only the detected platform card
+        renderCard(detectedPlatform, true);
+        return;
+    }
+    
+    // CASE 2: Text Search / General Filtering
+    const qLower = query.toLowerCase();
     const filtered = PLATFORMS_DATA.filter(p => {
-        if (!filterQuery) return true;
-        const q = filterQuery.toLowerCase();
-        return p.name.toLowerCase().includes(q) || 
-               p.desc.toLowerCase().includes(q) || 
-               p.id.toLowerCase().includes(q);
+        if (!query) return true;
+        return p.name.toLowerCase().includes(qLower) || 
+               p.desc.toLowerCase().includes(qLower) || 
+               p.id.toLowerCase().includes(qLower) ||
+               (p.aliases && p.aliases.some(alias => alias.toLowerCase().includes(qLower)));
     });
 
     if (filtered.length === 0) {
         platformGrid.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">
-                🔍 沒有找到符合「${filterQuery}」的平台，請嘗試搜尋 IG、YouTube 或 TikTok 等關鍵字。
+            <div class="empty-search-box">
+                <div class="empty-icon">🔍</div>
+                <div class="empty-title">沒有找到符合「${filterQuery}」的平台</div>
+                <div class="empty-desc">請嘗試點選下方熱門標籤，或直接貼上完整的 IG、YouTube、Threads 影片網址：</div>
+                <div class="quick-tags-wrap">
+                    <button type="button" class="quick-tag-btn" onclick="setSearchQuery('IG')">📸 Instagram (IG)</button>
+                    <button type="button" class="quick-tag-btn" onclick="setSearchQuery('YouTube')">▶️ YouTube</button>
+                    <button type="button" class="quick-tag-btn" onclick="setSearchQuery('Threads')">🧵 Threads</button>
+                    <button type="button" class="quick-tag-btn" onclick="setSearchQuery('TikTok')">🎵 TikTok / 抖音</button>
+                    <button type="button" class="quick-tag-btn" onclick="setSearchQuery('FB')">📘 Facebook</button>
+                    <button type="button" class="quick-tag-btn" onclick="setSearchQuery('小紅書')">📕 小紅書</button>
+                </div>
             </div>
         `;
         return;
     }
 
     filtered.forEach(platform => {
-        const primaryTool = platform.tools[0];
-        const backupTools = platform.tools.slice(1);
-        const shortPrimaryName = primaryTool.name.replace(/ \(.*?\)/, '');
-
-        const card = document.createElement('a');
-        card.className = 'platform-card';
-        card.style.setProperty('--card-theme', platform.color);
-        card.id = `card-${platform.id}`;
-        card.href = primaryTool.url;
-        card.target = '_blank';
-        card.rel = 'noopener noreferrer';
-        card.title = `點擊直接開啟 ${primaryTool.name}`;
-
-        card.innerHTML = `
-            <div class="card-top-row">
-                <div class="platform-icon-wrap">${platform.icon}</div>
-                <div class="card-arrow-badge" title="前往下載">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="platform-name">${platform.name}</div>
-                <div class="platform-desc">${platform.desc}</div>
-            </div>
-            <div class="card-footer">
-                <div class="engine-badge">
-                    <span class="engine-dot"></span>
-                    <span class="engine-name">${shortPrimaryName}</span>
-                    <span class="engine-action">直達 ↗</span>
-                </div>
-                ${backupTools.length > 0 ? `
-                <div class="backup-group">
-                    ${backupTools.map(bt => `
-                        <button type="button" class="backup-link-btn" data-url="${bt.url}" title="${bt.desc}">
-                            備用: ${bt.name.replace(/ \(.*?\)/, '')}
-                        </button>
-                    `).join('')}
-                </div>
-                ` : ''}
-            </div>
-        `;
-
-        // Handle backup chip clicks independently
-        card.querySelectorAll('.backup-link-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.open(btn.dataset.url, '_blank', 'noopener,noreferrer');
-            });
-        });
-
-        platformGrid.appendChild(card);
+        renderCard(platform, false);
     });
 }
+
+// Render individual platform card
+function renderCard(platform, isHighlighted = false) {
+    const primaryTool = platform.tools[0];
+    const backupTools = platform.tools.slice(1);
+    const shortPrimaryName = primaryTool.name.replace(/ \(.*?\)/, '');
+
+    const card = document.createElement('a');
+    card.className = `platform-card ${isHighlighted ? 'card-highlighted' : ''}`;
+    card.style.setProperty('--card-theme', platform.color);
+    card.id = `card-${platform.id}`;
+    card.href = primaryTool.url;
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+    card.title = `點擊直接開啟 ${primaryTool.name}`;
+
+    card.innerHTML = `
+        <div class="card-top-row">
+            <div class="platform-icon-wrap">${platform.icon}</div>
+            <div class="card-arrow-badge" title="前往下載">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="platform-name">${platform.name}</div>
+            <div class="platform-desc">${platform.desc}</div>
+        </div>
+        <div class="card-footer">
+            <div class="engine-badge">
+                <span class="engine-dot"></span>
+                <span class="engine-name">${shortPrimaryName}</span>
+                <span class="engine-action">直達 ↗</span>
+            </div>
+            ${backupTools.length > 0 ? `
+            <div class="backup-group">
+                ${backupTools.map(bt => `
+                    <button type="button" class="backup-link-btn" data-url="${bt.url}" title="${bt.desc}">
+                        備用: ${bt.name.replace(/ \(.*?\)/, '')}
+                    </button>
+                `).join('')}
+            </div>
+            ` : ''}
+        </div>
+    `;
+
+    // Handle backup chip clicks independently
+    card.querySelectorAll('.backup-link-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.open(btn.dataset.url, '_blank', 'noopener,noreferrer');
+        });
+    });
+
+    platformGrid.appendChild(card);
+}
+
+// Quick Tag Helper
+window.setSearchQuery = function(tag) {
+    if (platformSearch) {
+        platformSearch.value = tag;
+        renderPlatforms(tag);
+    }
+};
 
 // Search input listener
 if (platformSearch) {
     platformSearch.addEventListener('input', (e) => {
-        renderPlatforms(e.target.value.trim());
+        renderPlatforms(e.target.value);
     });
 }
 
