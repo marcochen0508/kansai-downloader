@@ -231,13 +231,23 @@ app.get('/api/download', (req, res) => {
         return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    const isDirectStream = (formatId === 'direct' || formatId === 'bestaudio');
-    const isDirectCdnUrl = !isYouTube && isDirectStream && (mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('twimg') || mediaUrl.includes('tiktokcdn'));
+    const isDirectCdnUrl = !isYouTube && mediaUrl && mediaUrl.startsWith('http') && (
+        mediaUrl.includes('cdninstagram') ||
+        mediaUrl.includes('fbcdn') ||
+        mediaUrl.includes('fbsbx') ||
+        mediaUrl.includes('twimg') ||
+        mediaUrl.includes('tiktokcdn') ||
+        mediaUrl.includes('byteoversea') ||
+        mediaUrl.includes('xhscdn') ||
+        mediaUrl.includes('sns-video') ||
+        mediaUrl.includes('bilibili') ||
+        mediaUrl.includes('bilivideo')
+    );
 
-    // Direct CDN bypass for Instagram / Facebook progressive URLs
-    if (!isYouTube && (isDirectCdnUrl || (isDirectStream && type === 'video' && !requiresYtdlpProxy && mediaUrl.startsWith('http')))) {
+    // Direct CDN bypass for Instagram / Facebook / Threads / TikTok / X / RED / Bilibili
+    if (isDirectCdnUrl) {
         console.log('[Stream] Direct CDN stream bypass:', mediaUrl.substring(0, 80));
-        const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
+        const contentType = type === 'audio' ? 'audio/mpeg' : (type === 'image' ? 'image/jpeg' : 'video/mp4');
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', contentType);
         return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
@@ -484,14 +494,14 @@ function fetchAndStream(mediaUrl, res, webpageUrl, safeFilename, redirectCount =
     try {
         const parsed = new URL(mediaUrl);
         let referer = webpageUrl || 'https://www.google.com';
-        if (parsed.hostname.includes('bilibili') || parsed.hostname.includes('hdslb')) {
+        if (parsed.hostname.includes('instagram') || parsed.hostname.includes('cdninstagram') || (webpageUrl && (webpageUrl.includes('instagram') || webpageUrl.includes('threads')))) {
+            referer = 'https://www.instagram.com/';
+        } else if (parsed.hostname.includes('facebook') || parsed.hostname.includes('fbcdn') || parsed.hostname.includes('fbsbx')) {
+            referer = 'https://www.facebook.com/';
+        } else if (parsed.hostname.includes('bilibili') || parsed.hostname.includes('hdslb')) {
             referer = 'https://www.bilibili.com/';
         } else if (parsed.hostname.includes('tiktok') || parsed.hostname.includes('tiktokcdn')) {
             referer = 'https://www.tiktok.com/';
-        } else if (parsed.hostname.includes('facebook') || parsed.hostname.includes('fbcdn') || parsed.hostname.includes('fbsbx')) {
-            referer = 'https://www.facebook.com/';
-        } else if (parsed.hostname.includes('instagram') || parsed.hostname.includes('cdninstagram')) {
-            referer = 'https://www.instagram.com/';
         }
 
         const options = {
