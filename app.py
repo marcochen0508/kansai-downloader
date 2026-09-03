@@ -2,6 +2,19 @@ import os
 import sys
 import subprocess
 
+# ZeroGPU compatibility handler
+try:
+    import spaces
+    @spaces.GPU
+    def _zero_gpu_ready():
+        return True
+    try:
+        _zero_gpu_ready()
+    except Exception:
+        pass
+except Exception:
+    pass
+
 print("[HuggingFace Space] Initializing Kansai Downloader System...", flush=True)
 
 # Install npm dependencies if not present
@@ -13,10 +26,6 @@ if not os.path.exists("node_modules"):
 os.environ["PORT"] = "7860"
 
 print("[HuggingFace Space] Launching Node.js backend server.js on port 7860...", flush=True)
-
-# Run server.js and pass output directly to container logs
-proc = subprocess.Popen([sys.executable, "-c", "import sys; print('Python ready')"])
-proc.wait()
 
 node_proc = subprocess.Popen(["node", "server.js"])
 node_proc.wait()
