@@ -231,7 +231,10 @@ app.get('/api/download', (req, res) => {
         return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    const isDirectCdnUrl = !isYouTube && mediaUrl && mediaUrl.startsWith('http') && (
+    // Direct CDN bypass ONLY for progressive streams (formatId === 'direct') that already have audio embedded
+    const isDirectFormat = (formatId === 'direct') && type !== 'audio';
+
+    const isDirectCdnUrl = !isYouTube && isDirectFormat && mediaUrl && mediaUrl.startsWith('http') && (
         mediaUrl.includes('cdninstagram') ||
         mediaUrl.includes('fbcdn') ||
         mediaUrl.includes('fbsbx') ||
@@ -244,9 +247,9 @@ app.get('/api/download', (req, res) => {
         mediaUrl.includes('bilivideo')
     );
 
-    // Direct CDN bypass for Instagram / Facebook / Threads / TikTok / X / RED / Bilibili
+    // Direct CDN bypass for progressive media (has audio and video muxed)
     if (isDirectCdnUrl) {
-        console.log('[Stream] Direct CDN stream bypass:', mediaUrl.substring(0, 80));
+        console.log('[Stream] Direct CDN progressive stream bypass:', mediaUrl.substring(0, 80));
         const contentType = type === 'audio' ? 'audio/mpeg' : (type === 'image' ? 'image/jpeg' : 'video/mp4');
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', contentType);

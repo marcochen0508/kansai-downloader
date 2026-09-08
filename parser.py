@@ -710,12 +710,24 @@ def scrape_instagram_fallback(url):
         if not images and thumbnail:
             images.append(thumbnail)
 
+        # Extract OG & Twitter video tags
+        og_vid_m = re.search(r'<meta\s+property="og:video(?::secure_url|:url)?"\s+content="([^"]*)"', html_text) or \
+                   re.search(r'<meta\s+content="([^"]*)"\s+property="og:video(?::secure_url|:url)?"', html_text) or \
+                   re.search(r'<meta\s+name="twitter:player:stream"\s+content="([^"]*)"', html_text)
+        if og_vid_m:
+            og_vid_url = html_lib.unescape(og_vid_m.group(1).replace('&amp;', '&'))
+            if og_vid_url and ('cdninstagram' in og_vid_url or 'fbcdn' in og_vid_url or '.mp4' in og_vid_url):
+                v_urls = [og_vid_url]
+            else:
+                v_urls = []
+        else:
+            v_urls = []
+
         # Extract video version URLs if present
         videos = []
         audios = []
         raw_videos = re.findall(r'"video_versions"\s*:\s*(\[[^\]]+\])', html_text) or re.findall(r'"video_url"\s*:\s*"([^"]+)"', html_text)
         if raw_videos:
-            v_urls = []
             for v_item in raw_videos:
                 if isinstance(v_item, str) and v_item.startswith('['):
                     v_srcs = re.findall(r'"url"\s*:\s*"([^"]+)"', v_item)
@@ -1468,7 +1480,18 @@ def parse_url(target_url):
         is_instagram = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
         is_facebook = 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url
 
-        for f in raw_formats:
+        # Sort raw_formats so progressive streams (with both audio & video) are prioritized over video-only DASH formats
+        sorted_raw_formats = sorted(
+            raw_formats,
+            key=lambda f: (
+                1 if ((f.get('vcodec') or 'none') != 'none' and (f.get('acodec') or 'none') != 'none') else 0,
+                f.get('height') or f.get('width') or 0,
+                f.get('filesize') or f.get('filesize_approx') or 0
+            ),
+            reverse=True
+        )
+
+        for f in sorted_raw_formats:
             f_url = f.get('url')
             if not f_url:
                 continue
@@ -1518,7 +1541,7 @@ def parse_url(target_url):
                     seen_res.add(res_key)
                     # Use direct CDN URL (f_url) for progressive streams (googlevideo, cdninstagram, fbcdn, etc.)
                     # so that backend fetchAndStream can stream directly from CDN without calling yt-dlp on cloud IP
-                    item_url = f_url
+                    item_url = f_url if effective_format_id == 'direct' else (webpage_url or f_url)
                     video_options.append({
                         'quality': res_label,
                         'height': height,
