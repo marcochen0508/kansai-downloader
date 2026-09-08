@@ -671,7 +671,7 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
         args.push('-x', '--audio-format', 'mp3');
     } else {
         args.push('--merge-output-format', 'mp4');
-        args.push('--postprocessor-args', 'Merger:-c:v libx264 -preset veryfast -c:a aac');
+        args.push('--postprocessor-args', 'Merger:-c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac -movflags +faststart');
     }
 
     if (ffmpegPath) {
