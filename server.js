@@ -33,9 +33,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.08-v4-h264-aac-audio',
-        audio_engine: 'H264+AAC Muxing Enabled',
-        updated_at: '2026-09-08 17:58'
+        version: '2026.09.08-v5-h264-aac-direct-mux',
+        audio_engine: 'Direct CDN H264+AAC Muxing Active',
+        updated_at: '2026-09-08 18:05'
     });
 });
 
@@ -209,13 +209,223 @@ function resolveYoutubeDirectStream(videoUrl, targetFormat = '1080') {
     });
 }
 
+// Universal Helper: Get verified FFmpeg binary path
+function getFfmpegPath() {
+    let p = null;
+    try {
+        p = require('ffmpeg-static');
+    } catch (e) {}
+    if (p && fs.existsSync(p)) return p;
+    const candidates = [
+        path.join(__dirname, 'node_modules', 'ffmpeg-static', 'ffmpeg'),
+        path.join(__dirname, 'node_modules', 'ffmpeg-static', 'ffmpeg.exe'),
+        '/usr/bin/ffmpeg',
+        '/usr/local/bin/ffmpeg'
+    ];
+    for (const c of candidates) {
+        if (fs.existsSync(c)) return c;
+    }
+    return 'ffmpeg';
+}
+
+// Universal Helper: Download a CDN media stream to a local temp file with redirect support
+function downloadFile(fileUrl, destPath, referer = 'https://www.instagram.com/', redirectCount = 0) {
+    return new Promise((resolve, reject) => {
+        if (redirectCount > 5) return reject(new Error('Too many redirects downloading CDN file'));
+        try {
+            const protocol = fileUrl.startsWith('https') ? https : http;
+            const options = {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                    'Referer': referer
+                }
+            };
+
+            const req = protocol.get(fileUrl, options, (res) => {
+                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                    const nextUrl = new URL(res.headers.location, fileUrl).toString();
+                    return downloadFile(nextUrl, destPath, referer, redirectCount + 1).then(resolve).catch(reject);
+                }
+                if (res.statusCode >= 400) {
+                    return reject(new Error(`HTTP ${res.statusCode} from CDN: ${fileUrl.substring(0, 60)}`));
+                }
+                const fileStream = fs.createWriteStream(destPath);
+                res.pipe(fileStream);
+                fileStream.on('finish', () => {
+                    fileStream.close(() => resolve(destPath));
+                });
+                fileStream.on('error', (err) => {
+                    try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch(e) {}
+                    reject(err);
+                });
+            });
+            req.on('error', (err) => {
+                try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch(e) {}
+                reject(err);
+            });
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+// Universal Direct CDN Muxer: Downloads video & audio CDN streams and muxes with H.264 + AAC
+async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUrl = '') {
+    const fileId = `mux_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const tempVideo = path.join(tempDir, `${fileId}_v.mp4`);
+    const tempAudio = path.join(tempDir, `${fileId}_a.mp4`);
+    const tempOut = path.join(tempDir, `${fileId}_out.mp4`);
+
+    const cleanup = () => {
+        try { if (fs.existsSync(tempVideo)) fs.unlinkSync(tempVideo); } catch(e) {}
+        try { if (fs.existsSync(tempAudio)) fs.unlinkSync(tempAudio); } catch(e) {}
+        try { if (fs.existsSync(tempOut)) fs.unlinkSync(tempOut); } catch(e) {}
+    };
+
+    let referer = 'https://www.instagram.com/';
+    if (webpageUrl && (webpageUrl.includes('facebook') || webpageUrl.includes('fbcdn'))) {
+        referer = 'https://www.facebook.com/';
+    }
+
+    try {
+        console.log(`[Mux Engine] Downloading CDN streams: Video (${videoUrl.substring(0, 50)}...) & Audio (${audioUrl.substring(0, 50)}...)`);
+        await Promise.all([
+            downloadFile(videoUrl, tempVideo, referer),
+            downloadFile(audioUrl, tempAudio, referer)
+        ]);
+
+        const ffmpeg = getFfmpegPath();
+        console.log(`[Mux Engine] FFmpeg merging with standard H.264+AAC (${ffmpeg})...`);
+
+        // Ultra-fast lossless muxing: copy video stream directly + encode standard AAC audio for instant download
+        const ffmpegArgs = [
+            '-y',
+            '-i', tempVideo,
+            '-i', tempAudio,
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-b:a', '192k',
+            '-movflags', '+faststart',
+            tempOut
+        ];
+
+        await new Promise((resolve, reject) => {
+            const child = spawn(ffmpeg, ffmpegArgs);
+            let errOutput = '';
+            child.stderr.on('data', d => errOutput += d.toString());
+            child.on('close', code => {
+                if (code === 0 && fs.existsSync(tempOut) && fs.statSync(tempOut).size > 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`FFmpeg exited with code ${code}: ${errOutput.slice(-300)}`));
+                }
+            });
+            child.on('error', reject);
+        });
+
+        const stat = fs.statSync(tempOut);
+        console.log(`[Mux Engine] Muxing succeeded! File size: ${(stat.size / (1024 * 1024)).toFixed(2)} MB`);
+
+        setContentDisposition(res, safeFilename);
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Content-Length', stat.size);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+
+        const readStream = fs.createReadStream(tempOut);
+        readStream.pipe(res);
+        readStream.on('close', cleanup);
+        readStream.on('error', (err) => {
+            console.error('[Mux Engine] Stream error:', err);
+            cleanup();
+        });
+        res.on('finish', cleanup);
+        res.on('close', cleanup);
+
+    } catch (err) {
+        console.error('[Mux Engine] Direct CDN mux error:', err.message);
+        cleanup();
+        if (!res.headersSent) {
+            downloadViaYtdlp(videoUrl, webpageUrl, safeFilename, res);
+        }
+    }
+}
+
+// Universal Direct CDN Audio Extractor: Converts audio stream to clean standard MP3
+async function extractAudioFromCdn(audioUrl, safeFilename, res, webpageUrl = '') {
+    const fileId = `aud_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const tempIn = path.join(tempDir, `${fileId}_in.mp4`);
+    const tempOut = path.join(tempDir, `${fileId}_out.mp3`);
+
+    const cleanup = () => {
+        try { if (fs.existsSync(tempIn)) fs.unlinkSync(tempIn); } catch(e) {}
+        try { if (fs.existsSync(tempOut)) fs.unlinkSync(tempOut); } catch(e) {}
+    };
+
+    let referer = 'https://www.instagram.com/';
+    if (webpageUrl && (webpageUrl.includes('facebook') || webpageUrl.includes('fbcdn'))) {
+        referer = 'https://www.facebook.com/';
+    }
+
+    try {
+        console.log(`[Audio Engine] Downloading audio stream: ${audioUrl.substring(0, 50)}...`);
+        await downloadFile(audioUrl, tempIn, referer);
+
+        const ffmpeg = getFfmpegPath();
+        const ffmpegArgs = [
+            '-y',
+            '-i', tempIn,
+            '-vn',
+            '-c:a', 'libmp3lame',
+            '-b:a', '192k',
+            tempOut
+        ];
+
+        await new Promise((resolve, reject) => {
+            const child = spawn(ffmpeg, ffmpegArgs);
+            let errOutput = '';
+            child.stderr.on('data', d => errOutput += d.toString());
+            child.on('close', code => {
+                if (code === 0 && fs.existsSync(tempOut) && fs.statSync(tempOut).size > 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`FFmpeg audio extract exited with code ${code}: ${errOutput.slice(-300)}`));
+                }
+            });
+            child.on('error', reject);
+        });
+
+        const stat = fs.statSync(tempOut);
+        console.log(`[Audio Engine] Extraction succeeded! File size: ${(stat.size / (1024 * 1024)).toFixed(2)} MB`);
+
+        setContentDisposition(res, safeFilename);
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Length', stat.size);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+
+        const readStream = fs.createReadStream(tempOut);
+        readStream.pipe(res);
+        readStream.on('close', cleanup);
+        readStream.on('error', cleanup);
+        res.on('finish', cleanup);
+        res.on('close', cleanup);
+
+    } catch (err) {
+        console.error('[Audio Engine] Audio extract error:', err.message);
+        cleanup();
+        if (!res.headersSent) {
+            downloadViaYtdlp(audioUrl, webpageUrl, safeFilename, res, 'bestaudio', 'audio');
+        }
+    }
+}
+
 // Download API - Unified download & audio extractor
 app.get('/api/download', (req, res) => {
-    const { url, filename, type, formatId } = req.query;
+    const { url, filename, type, formatId, audioUrl } = req.query;
     let mediaUrl = url;
     let targetWebpageUrl = req.query.webpageUrl || '';
+    let targetAudioUrl = audioUrl || '';
 
-    if (!mediaUrl && !targetWebpageUrl) {
+    if (!mediaUrl && !targetWebpageUrl && !targetAudioUrl) {
         return res.status(400).send('No URL provided');
     }
 
@@ -230,19 +440,29 @@ app.get('/api/download', (req, res) => {
     const isBilibili = targetWebpageUrl && (targetWebpageUrl.includes('bilibili.com') || targetWebpageUrl.includes('b23.tv'));
     const isInstagram = targetWebpageUrl && (targetWebpageUrl.includes('instagram.com') || targetWebpageUrl.includes('instagr.am'));
     const isFacebook = targetWebpageUrl && (targetWebpageUrl.includes('facebook.com') || targetWebpageUrl.includes('fb.watch') || targetWebpageUrl.includes('fb.com'));
-    const isFacebookDash = isFacebook && formatId && formatId !== 'direct';
 
-    const requiresYtdlpProxy = isYouTube || isBilibili || isInstagram || isFacebookDash;
-
+    // 1. Image downloads: Proxy stream directly
     if (type === 'image') {
         setContentDisposition(res, safeFilename);
         res.setHeader('Content-Type', 'image/jpeg');
         return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    // Direct CDN bypass ONLY for progressive streams (formatId === 'direct') that already have audio embedded
-    const isDirectFormat = (formatId === 'direct') && type !== 'audio';
+    // 2. Direct Video+Audio CDN Muxing (Bypasses all cloud IP / datacenter scraping blocks!)
+    if (type !== 'audio' && targetAudioUrl && mediaUrl && mediaUrl.startsWith('http') && targetAudioUrl.startsWith('http')) {
+        console.log('[Download] Direct CDN Muxing triggered for video & audio tracks');
+        return muxVideoAndAudio(mediaUrl, targetAudioUrl, safeFilename, res, targetWebpageUrl);
+    }
 
+    // 3. Direct Audio CDN Extraction
+    if (type === 'audio' && (targetAudioUrl || (mediaUrl && mediaUrl.startsWith('http') && (mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('tiktokcdn') || mediaUrl.includes('twimg'))))) {
+        const streamAudioUrl = targetAudioUrl || mediaUrl;
+        console.log('[Download] Direct CDN audio extract triggered');
+        return extractAudioFromCdn(streamAudioUrl, safeFilename, res, targetWebpageUrl);
+    }
+
+    // 4. Direct CDN bypass ONLY for progressive streams (formatId === 'direct') that already have audio embedded
+    const isDirectFormat = (formatId === 'direct') && type !== 'audio';
     const isDirectCdnUrl = !isYouTube && isDirectFormat && mediaUrl && mediaUrl.startsWith('http') && (
         mediaUrl.includes('cdninstagram') ||
         mediaUrl.includes('fbcdn') ||
@@ -256,7 +476,6 @@ app.get('/api/download', (req, res) => {
         mediaUrl.includes('bilivideo')
     );
 
-    // Direct CDN bypass for progressive media (has audio and video muxed)
     if (isDirectCdnUrl) {
         console.log('[Stream] Direct CDN progressive stream bypass:', mediaUrl.substring(0, 80));
         const contentType = type === 'audio' ? 'audio/mpeg' : (type === 'image' ? 'image/jpeg' : 'video/mp4');
@@ -265,7 +484,7 @@ app.get('/api/download', (req, res) => {
         return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
     }
 
-    // High-speed direct resolver for YouTube (100% bypass of cloud IP bot checks)
+    // 5. High-speed direct resolver for YouTube
     if (isYouTube) {
         console.log(`[YT Stream] Resolving high-speed stream for: ${targetWebpageUrl} (format: ${formatId || type})`);
         const desiredFormat = (type === 'audio' || formatId === 'bestaudio') ? 'mp3' : (formatId || '1080');
@@ -284,7 +503,7 @@ app.get('/api/download', (req, res) => {
             });
     }
 
-    // ALWAYS use backend yt-dlp proxy stream for DASH merge formats (video+audio), Bilibili, and other platforms
+    // 6. Fallback: yt-dlp proxy stream
     downloadViaYtdlp(mediaUrl, targetWebpageUrl, safeFilename, res, formatId, type, req);
 });
 

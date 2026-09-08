@@ -1508,6 +1508,19 @@ def parse_url(target_url):
             reverse=True
         )
 
+        # Find the best separate audio stream CDN URL for DASH muxing
+        best_audio_url = ""
+        for f in sorted_raw_formats:
+            if (f.get('acodec') or 'none') != 'none' and (f.get('vcodec') or 'none') == 'none':
+                if f.get('url'):
+                    best_audio_url = f.get('url')
+                    break
+        if not best_audio_url:
+            for f in sorted_raw_formats:
+                if (f.get('acodec') or 'none') != 'none' and f.get('url'):
+                    best_audio_url = f.get('url')
+                    break
+
         for f in sorted_raw_formats:
             f_url = f.get('url')
             if not f_url:
@@ -1547,26 +1560,25 @@ def parse_url(target_url):
                     res_label = f"{height}p"
 
                 effective_format_id = format_id
+                has_own_audio = (acodec != 'none')
                 # Progressive formats (has audio and video): mark as 'direct' for fast CDN streaming
-                if (is_instagram or is_facebook or is_youtube) and acodec != 'none' and vcodec != 'none':
+                if (is_instagram or is_facebook or is_youtube) and has_own_audio:
                     effective_format_id = 'direct'
-                # Instagram / Facebook DASH video-only: keep format_id as-is, server will use yt-dlp to merge
-                elif (is_instagram or is_facebook) and acodec == 'none':
-                    res_label += ' (需合併音訊)'
 
                 res_key = f"{height}"
                 if res_key not in seen_res:
                     seen_res.add(res_key)
-                    # Use direct CDN URL (f_url) for progressive streams (googlevideo, cdninstagram, fbcdn, etc.)
-                    # so that backend fetchAndStream can stream directly from CDN without calling yt-dlp on cloud IP
-                    item_url = f_url if effective_format_id == 'direct' else (webpage_url or f_url)
+                    # Pass direct video stream CDN URL (f_url) and matching audio CDN stream URL (best_audio_url)
+                    # so that backend can merge them directly via FFmpeg without hitting cloud IP blocking!
+                    target_audio_url = "" if has_own_audio else best_audio_url
                     video_options.append({
                         'quality': res_label,
                         'height': height,
                         'ext': ext,
-                        'has_audio': acodec != 'none',
+                        'has_audio': has_own_audio or bool(best_audio_url),
                         'size': size_str,
-                        'url': item_url,
+                        'url': f_url,
+                        'audio_url': target_audio_url,
                         'format_id': effective_format_id,
                         'webpage_url': webpage_url
                     })
@@ -1593,6 +1605,7 @@ def parse_url(target_url):
                 'has_audio': True,
                 'size': '',
                 'url': info.get('url'),
+                'audio_url': best_audio_url,
                 'format_id': 'best',
                 'webpage_url': webpage_url
             })

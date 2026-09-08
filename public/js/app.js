@@ -371,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const targetFilename = makeCleanFilename(data.title, vid.quality, vid.ext, platformId, currentSeqName);
                 const itemWebpageUrl = vid.webpage_url || data.webpage_url || targetUrl;
-                const dlProxyUrl = `/api/download?filename=${safeEncode(targetFilename)}&type=video&webpageUrl=${safeEncode(itemWebpageUrl)}&formatId=${safeEncode(vid.format_id || '')}&url=${safeEncode(vid.url)}`;
+                const dlProxyUrl = `/api/download?filename=${safeEncode(targetFilename)}&type=video&webpageUrl=${safeEncode(itemWebpageUrl)}&formatId=${safeEncode(vid.format_id || '')}&url=${safeEncode(vid.url)}${vid.audio_url ? `&audioUrl=${safeEncode(vid.audio_url)}` : ''}`;
 
                 const itemVidThumb = vid.thumbnail || data.thumbnail || '';
                 const proxiedVidThumb = getProxyImageUrl(itemVidThumb);
