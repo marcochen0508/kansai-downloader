@@ -634,18 +634,22 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
     let formatStr;
     if (isAudio) {
         formatStr = (formatId && formatId !== 'direct' && formatId !== 'bestaudio') ? `${formatId}/bestaudio/best` : 'bestaudio/best';
-    } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
-        if (formatId.includes('+') || formatId.includes('/')) {
-            formatStr = `${formatId}/best`;
-        } else {
-            formatStr = `${formatId}+bestaudio/${formatId}/best`;
-        }
     } else if (isYouTubeUrl) {
         formatStr = 'bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/18/b/best';
     } else if (isInstagramUrl || isFacebookUrl) {
-        formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
+        if (formatId && formatId !== 'direct' && formatId !== 'best') {
+            formatStr = `${formatId}+bestaudio/bestvideo+bestaudio/best[ext=mp4][acodec!=none]/best`;
+        } else {
+            formatStr = 'best[ext=mp4][acodec!=none]/bestvideo+bestaudio/best';
+        }
+    } else if (formatId && formatId !== 'direct' && formatId !== 'best' && formatId !== 'yt_merge') {
+        if (formatId.includes('+') || formatId.includes('/')) {
+            formatStr = `${formatId}/bestvideo+bestaudio/best`;
+        } else {
+            formatStr = `${formatId}+bestaudio/bestvideo+bestaudio/best`;
+        }
     } else {
-        formatStr = 'b/best';
+        formatStr = 'bestvideo+bestaudio/b/best';
     }
 
     const args = [
@@ -777,10 +781,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                 return downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId, type, req, true);
             }
 
-            // FALLBACK 2: If yt-dlp fails on Cloud IP, fallback to streaming direct CDN url (only if direct media link)
-            const isDirectCdnUrl = url && (url.includes('googlevideo.com') || url.includes('.mp4') || url.includes('.m4s') || url.includes('fbcdn') || url.includes('cdninstagram'));
-            if (isDirectCdnUrl && !res.headersSent) {
-                console.log('yt-dlp failed, falling back to direct stream via fetchAndStream for:', url);
+            // FALLBACK 2: If yt-dlp fails on Cloud IP, fallback to streaming direct CDN url ONLY if format is progressive (has audio)
+            const isProgressiveDirectCdn = (formatId === 'direct') && url && (url.includes('googlevideo.com') || url.includes('.mp4') || url.includes('fbcdn') || url.includes('cdninstagram'));
+            if (isProgressiveDirectCdn && !res.headersSent) {
+                console.log('yt-dlp failed, falling back to progressive direct stream via fetchAndStream for:', url);
                 const contentType = type === 'audio' ? 'audio/mpeg' : 'video/mp4';
                 setContentDisposition(res, safeFilename);
                 res.setHeader('Content-Type', contentType);
@@ -795,7 +799,10 @@ function downloadViaYtdlp(url, webpageUrl, safeFilename, res, formatId = '', typ
                                         stderrLower.includes('confirm your age') ||
                                         stderrLower.includes('login required') ||
                                         stderrLower.includes('use --cookies') ||
-                                        stderrLower.includes('cookies for this website');
+                                        stderrLower.includes('cookies for this website') ||
+                                        stderrLower.includes('empty media response') ||
+                                        stderrLower.includes('not granting access') ||
+                                        stderrLower.includes('video info extraction failed');
                 if (isCookieExpired) {
                     const isYT = targetUrl && (targetUrl.includes('youtube') || targetUrl.includes('youtu.be'));
                     const isIG = targetUrl && (targetUrl.includes('instagram') || targetUrl.includes('threads'));
