@@ -1480,6 +1480,23 @@ def parse_url(target_url):
         is_instagram = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
         is_facebook = 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url
 
+        # Pre-process formats to recognize Instagram progressive streams
+        for f in raw_formats:
+            f_url = f.get('url') or ''
+            format_id = str(f.get('format_id') or '')
+            is_ig_prog = is_instagram and (
+                'xpv_progressive' in f_url or
+                'progressive_recipe' in f_url or
+                'dash_baseline' in f_url or
+                format_id in ('1', '2', '3', '0')
+            )
+            if is_ig_prog:
+                f['vcodec'] = 'h264'
+                f['acodec'] = 'aac'
+                if not f.get('height') and not f.get('width'):
+                    f['height'] = 720
+                    f['width'] = 1280
+
         # Sort raw_formats so progressive streams (with both audio & video) are prioritized over video-only DASH formats
         sorted_raw_formats = sorted(
             raw_formats,
@@ -1496,17 +1513,18 @@ def parse_url(target_url):
             if not f_url:
                 continue
 
-            vcodec = f.get('vcodec', 'none')
-            acodec = f.get('acodec', 'none')
+            vcodec = f.get('vcodec') or 'none'
+            acodec = f.get('acodec') or 'none'
             ext = f.get('ext', 'mp4')
             width = f.get('width') or 0
             raw_height = f.get('height') or 0
+            format_id = str(f.get('format_id') or '')
+
             # For vertical videos (Shorts / Reels / TikTok), resolution tier (1080p, 720p, 2K, 4K)
             # is based on min(width, raw_height) so 1080x1920 is correctly 1080p Full HD, NOT 2K.
             height = min(width, raw_height) if (width > 0 and raw_height > 0) else raw_height
             format_note = f.get('format_note', '') or ''
             filesize = f.get('filesize') or f.get('filesize_approx') or 0
-            format_id = f.get('format_id') or ''
 
             size_str = ""
             if filesize > 0:
