@@ -30,6 +30,15 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Version endpoint to verify active deployed version
+app.get('/api/version', (req, res) => {
+    res.json({
+        version: '2026.09.08-v4-h264-aac-audio',
+        audio_engine: 'H264+AAC Muxing Enabled',
+        updated_at: '2026-09-08 17:58'
+    });
+});
+
 // Restore YouTube cookies from environment variable (base64 encoded) if not present on disk
 // This allows cloud deployments (Render/Zeabur) to have cookies without committing them to git
 const ytCookieFilePath = path.join(__dirname, 'yt_cookies.txt');
