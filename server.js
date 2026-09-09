@@ -97,6 +97,19 @@ function getPythonCmd() {
 const NODE_EXEC_PATH = process.execPath;
 console.log(`[yt-dlp] Node.js runtime path: ${NODE_EXEC_PATH}`);
 
+app.get('/api/debug-ig', (req, res) => {
+    const pythonCmd = getPythonCmd();
+    const target = req.query.url || 'https://www.instagram.com/reel/Dc8Y5hgqJ4v/';
+    const pyScript = `import json\nfrom yt_dlp import YoutubeDL\nydl = YoutubeDL({'quiet': True, 'allow_unplayable_formats': True})\ninfo = ydl.extract_info('${target}', download=False)\nfmts = info.get('formats', [])\nprint(json.dumps([{'id': f.get('format_id'), 'vcodec': f.get('vcodec'), 'acodec': f.get('acodec'), 'url': (f.get('url') or '')[:50]} for f in fmts]))`;
+    const child = spawn(pythonCmd, ['-c', pyScript]);
+    let out = '', err = '';
+    child.stdout.on('data', d => out += d);
+    child.stderr.on('data', d => err += d);
+    child.on('close', code => {
+        res.json({ code, out: out.trim(), err: err.trim() });
+    });
+});
+
 // API: Parse social media URL via parser.py
 app.post('/api/parse', (req, res) => {
     const { url } = req.body;
