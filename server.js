@@ -358,7 +358,7 @@ async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUr
             '-i', tempVideo,
             '-i', tempAudio,
             '-map', '0:v:0',
-            '-map', '1:a?',
+            '-map', '1:0',
             ...videoCodecArgs,
             '-c:a', 'aac',
             '-profile:a', 'aac_low',
