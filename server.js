@@ -37,9 +37,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v7-real-audio-stream-fixed',
+        version: '2026.09.09-v8-proven-audio-mux',
         audio_engine: 'Guaranteed Pure Audio Stream Muxing & Static LC-AAC Engine Active',
-        updated_at: '2026-09-09 11:56'
+        updated_at: '2026-09-09 12:02'
     });
 });
 
