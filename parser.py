@@ -1579,6 +1579,7 @@ def parse_url(target_url):
                         'size': size_str,
                         'url': f_url,
                         'audio_url': target_audio_url,
+                        'vcodec': vcodec or '',
                         'format_id': effective_format_id,
                         'webpage_url': webpage_url
                     })
@@ -1606,6 +1607,7 @@ def parse_url(target_url):
                 'size': '',
                 'url': info.get('url'),
                 'audio_url': best_audio_url,
+                'vcodec': info.get('vcodec') or '',
                 'format_id': 'best',
                 'webpage_url': webpage_url
             })

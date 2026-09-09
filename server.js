@@ -33,9 +33,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.08-v5-h264-aac-direct-mux',
-        audio_engine: 'Direct CDN H264+AAC Muxing Active',
-        updated_at: '2026-09-08 18:05'
+        version: '2026.09.09-v1-universal-h264-audio-mux',
+        audio_engine: 'Universal H264+AAC Muxing Active',
+        updated_at: '2026-09-09 10:30'
     });
 });
 
@@ -270,7 +270,7 @@ function downloadFile(fileUrl, destPath, referer = 'https://www.instagram.com/',
 }
 
 // Universal Direct CDN Muxer: Downloads video & audio CDN streams and muxes with H.264 + AAC
-async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUrl = '') {
+async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUrl = '', vcodec = '') {
     const fileId = `mux_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const tempVideo = path.join(tempDir, `${fileId}_v.mp4`);
     const tempAudio = path.join(tempDir, `${fileId}_a.mp4`);
@@ -295,14 +295,24 @@ async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUr
         ]);
 
         const ffmpeg = getFfmpegPath();
-        console.log(`[Mux Engine] FFmpeg merging with standard H.264+AAC (${ffmpeg})...`);
+        
+        // Determine whether video is already H.264 (AVC) or needs transcoding (VP9/AV1)
+        let isH264 = false;
+        const lowerVcodec = (vcodec || '').toLowerCase();
+        if (lowerVcodec.includes('avc') || lowerVcodec.includes('h264')) {
+            isH264 = true;
+        }
 
-        // Ultra-fast lossless muxing: copy video stream directly + encode standard AAC audio for instant download
+        console.log(`[Mux Engine] FFmpeg merging (isH264: ${isH264}, codec: ${vcodec || 'auto'})...`);
+
+        // If source is already standard H.264, use copy mode;
+        // If source is VP9/AV1 (e.g. Instagram DASH vp09), transcode video to standard H.264 (yuv420p) + AAC audio
+        // to guarantee instant loud/clear playback on all Windows Media Player, iOS, Android, and QuickTime players.
         const ffmpegArgs = [
             '-y',
             '-i', tempVideo,
             '-i', tempAudio,
-            '-c:v', 'copy',
+            ...(isH264 ? ['-c:v', 'copy'] : ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '22', '-pix_fmt', 'yuv420p']),
             '-c:a', 'aac',
             '-b:a', '192k',
             '-movflags', '+faststart',
@@ -420,7 +430,7 @@ async function extractAudioFromCdn(audioUrl, safeFilename, res, webpageUrl = '')
 
 // Download API - Unified download & audio extractor
 app.get('/api/download', (req, res) => {
-    const { url, filename, type, formatId, audioUrl } = req.query;
+    const { url, filename, type, formatId, audioUrl, vcodec } = req.query;
     let mediaUrl = url;
     let targetWebpageUrl = req.query.webpageUrl || '';
     let targetAudioUrl = audioUrl || '';
@@ -450,8 +460,8 @@ app.get('/api/download', (req, res) => {
 
     // 2. Direct Video+Audio CDN Muxing (Bypasses all cloud IP / datacenter scraping blocks!)
     if (type !== 'audio' && targetAudioUrl && mediaUrl && mediaUrl.startsWith('http') && targetAudioUrl.startsWith('http')) {
-        console.log('[Download] Direct CDN Muxing triggered for video & audio tracks');
-        return muxVideoAndAudio(mediaUrl, targetAudioUrl, safeFilename, res, targetWebpageUrl);
+        console.log('[Download] Direct CDN Muxing triggered for video & audio tracks (codec: ' + (vcodec || 'auto') + ')');
+        return muxVideoAndAudio(mediaUrl, targetAudioUrl, safeFilename, res, targetWebpageUrl, vcodec);
     }
 
     // 3. Direct Audio CDN Extraction
