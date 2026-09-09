@@ -1,2 +1,3 @@
 yt-dlp==2026.07.04
 curl_cffi
+imageio-ffmpeg

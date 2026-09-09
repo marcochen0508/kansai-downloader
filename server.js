@@ -33,10 +33,21 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v5-universal-lcaac-audio',
-        audio_engine: 'Universal LC-AAC Remux & Fast Muxing Engine Active',
-        updated_at: '2026-09-09 11:42'
+        version: '2026.09.09-v6-guaranteed-imageio-lcaac',
+        audio_engine: 'Guaranteed Static ImageIO FFmpeg & Universal LC-AAC Engine Active',
+        updated_at: '2026-09-09 11:48'
     });
+});
+
+// Diagnostic FFmpeg verification endpoint
+app.get('/api/ffmpeg-status', (req, res) => {
+    const ffmpeg = getFfmpegPath();
+    try {
+        const versionOutput = require('child_process').execSync(`"${ffmpeg}" -version`, { encoding: 'utf-8', timeout: 5000 }).split('\n')[0];
+        res.json({ status: 'ok', ffmpeg_path: ffmpeg, version: versionOutput });
+    } catch (err) {
+        res.status(500).json({ status: 'error', ffmpeg_path: ffmpeg, error: err.message });
+    }
 });
 
 // Restore YouTube cookies from environment variable (base64 encoded) if not present on disk
@@ -209,23 +220,57 @@ function resolveYoutubeDirectStream(videoUrl, targetFormat = '1080') {
     });
 }
 
-// Universal Helper: Get verified FFmpeg binary path
+// Verified FFmpeg resolver: Uses imageio_ffmpeg, ffmpeg-static (auto-chmod), or system FFmpeg
+let cachedFfmpegPath = null;
 function getFfmpegPath() {
-    let p = null;
+    if (cachedFfmpegPath) {
+        if (cachedFfmpegPath === 'ffmpeg' || fs.existsSync(cachedFfmpegPath)) {
+            return cachedFfmpegPath;
+        }
+    }
+
+    // 1. Try python imageio_ffmpeg (installed via requirements.txt, guaranteed static FFmpeg on all platforms)
     try {
-        p = require('ffmpeg-static');
+        const pythonCmd = getPythonCmd();
+        const stdout = require('child_process').execSync(`"${pythonCmd}" -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"`, { encoding: 'utf-8', timeout: 6000 }).trim();
+        if (stdout && fs.existsSync(stdout)) {
+            try { fs.chmodSync(stdout, 0o755); } catch (e) {}
+            cachedFfmpegPath = stdout;
+            console.log(`[FFmpeg Engine] Discovered FFmpeg via imageio_ffmpeg: ${cachedFfmpegPath}`);
+            return cachedFfmpegPath;
+        }
+    } catch (e) {
+        console.warn('[FFmpeg Engine] imageio_ffmpeg probe notice:', e.message);
+    }
+
+    // 2. Try ffmpeg-static
+    try {
+        const staticFfmpeg = require('ffmpeg-static');
+        if (staticFfmpeg && fs.existsSync(staticFfmpeg)) {
+            try { fs.chmodSync(staticFfmpeg, 0o755); } catch (e) {}
+            cachedFfmpegPath = staticFfmpeg;
+            console.log(`[FFmpeg Engine] Using ffmpeg-static: ${cachedFfmpegPath}`);
+            return cachedFfmpegPath;
+        }
     } catch (e) {}
-    if (p && fs.existsSync(p)) return p;
-    const candidates = [
+
+    // 3. Try standard system paths
+    const systemPaths = [
         path.join(__dirname, 'node_modules', 'ffmpeg-static', 'ffmpeg'),
         path.join(__dirname, 'node_modules', 'ffmpeg-static', 'ffmpeg.exe'),
         '/usr/bin/ffmpeg',
-        '/usr/local/bin/ffmpeg'
+        '/usr/local/bin/ffmpeg',
+        'ffmpeg'
     ];
-    for (const c of candidates) {
-        if (fs.existsSync(c)) return c;
+    for (const p of systemPaths) {
+        if (p === 'ffmpeg' || fs.existsSync(p)) {
+            try { if (p !== 'ffmpeg') fs.chmodSync(p, 0o755); } catch (e) {}
+            cachedFfmpegPath = p;
+            return cachedFfmpegPath;
+        }
     }
-    return 'ffmpeg';
+    cachedFfmpegPath = 'ffmpeg';
+    return cachedFfmpegPath;
 }
 
 // Universal Helper: Download a CDN media stream to a local temp file with redirect support
@@ -355,7 +400,7 @@ async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUr
         console.error('[Mux Engine] Direct CDN mux error:', err.message);
         cleanup();
         if (!res.headersSent) {
-            downloadViaYtdlp(videoUrl, webpageUrl, safeFilename, res);
+            res.status(500).send(`影片合成失敗 (${err.message})，請重試或下載 720p 畫質。`);
         }
     }
 }
@@ -437,10 +482,7 @@ async function remuxProgressiveWithLcAac(mediaUrl, safeFilename, res, webpageUrl
         console.error('[Remux Engine] Remux error:', err.message);
         cleanup();
         if (!res.headersSent) {
-            console.log('[Remux Engine] Falling back to fetchAndStream');
-            setContentDisposition(res, safeFilename);
-            res.setHeader('Content-Type', 'video/mp4');
-            fetchAndStream(mediaUrl, res, webpageUrl, safeFilename);
+            res.status(500).send(`音訊轉碼處理失敗 (${err.message})，請重試。`);
         }
     }
 }
