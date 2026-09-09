@@ -33,9 +33,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v3-progressive-direct-audio',
-        audio_engine: 'Progressive Direct H264+AAC Stream Active',
-        updated_at: '2026-09-09 11:18'
+        version: '2026.09.09-v4-guaranteed-h264-audio',
+        audio_engine: 'Guaranteed H264+AAC Muxing & Progressive Stream Active',
+        updated_at: '2026-09-09 11:25'
     });
 });
 
@@ -297,14 +297,17 @@ async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUr
         const ffmpeg = getFfmpegPath();
         console.log(`[Mux Engine] FFmpeg fast muxing with audio (${ffmpeg})...`);
 
-        // Ultra-fast lossless muxing: copy video stream directly + encode standard AAC audio for instant download without timeout
+        // Fast H.264+AAC muxing: transcode video to standard H.264 (yuv420p) + AAC audio for 100% sound compatibility on Windows Media Player & iOS
         const ffmpegArgs = [
             '-y',
             '-i', tempVideo,
             '-i', tempAudio,
             '-map', '0:v:0',
             '-map', '1:a:0',
-            '-c:v', 'copy',
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-crf', '26',
+            '-pix_fmt', 'yuv420p',
             '-c:a', 'aac',
             '-b:a', '192k',
             '-shortest',
