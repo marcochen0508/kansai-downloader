@@ -37,11 +37,12 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v9-zero-cookie-sound-active',
-        audio_engine: 'Universal Zero-Cookie Progressive Stream Engine & Fast LC-AAC Transcoder Active',
-        updated_at: '2026-09-09 12:40'
+        version: '2026.09.09-v10-clean-metadata-filename',
+        audio_engine: 'Universal Zero-Cookie Progressive Stream Engine & Rich Metadata Extraction Active',
+        updated_at: '2026-09-09 13:10'
     });
 });
+
 
 
 // Diagnostic FFmpeg verification endpoint

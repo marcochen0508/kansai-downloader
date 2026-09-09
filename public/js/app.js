@@ -176,15 +176,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Clean filename helper for downloading readable files
     function makeCleanFilename(title, qualityStr, ext, platformId, currentSeqName = '') {
-        let cleanQuality = (qualityStr || '')
-            .replace(/\(.*\)/g, '')
-            .replace(/🎬|🎵|🖼️/g, '')
-            .replace(/[\\/:*?"<>|#]/g, '_')
-            .trim();
+        let cleanQuality = '';
+        const qLower = (qualityStr || '').toLowerCase();
+        if (qLower.includes('2160') || qLower.includes('4k')) cleanQuality = '4K';
+        else if (qLower.includes('1440') || qLower.includes('2k')) cleanQuality = '1440p';
+        else if (qLower.includes('1080')) cleanQuality = '1080p';
+        else if (qLower.includes('720')) cleanQuality = '720p';
+        else if (qLower.includes('480')) cleanQuality = '480p';
+        else if (qLower.includes('360')) cleanQuality = '360p';
+        else if (ext === 'mp3') cleanQuality = 'audio';
+        else if (ext === 'jpg' || ext === 'png') cleanQuality = 'photo';
+        else {
+            cleanQuality = (qualityStr || '').replace(/\(.*\)/g, '').replace(/🎬|🎵|🖼️/g, '').replace(/[\\/:*?"<>|#]/g, '_').trim();
+        }
 
         if (isGenericTitle(title)) {
             const seqName = currentSeqName || getPlatformSequenceName(platformId);
-            return `${seqName}_${cleanQuality}.${ext}`.replace(/__+/g, '_');
+            return cleanQuality ? `${seqName}_${cleanQuality}.${ext}`.replace(/__+/g, '_') : `${seqName}.${ext}`;
         }
 
         let clean = (title || '')
@@ -192,18 +200,19 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/TikTok video #\d+/gi, '')
             .replace(/video #\d+/gi, '')
             .replace(/video by \w+/gi, '')
-            .replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB\u300C\u300D]/g, '')  // Unicode quotes
+            .replace(/[\u201C\u201D\u2018\u2019\u00AB\u00BB\u300C\u300D]/g, '')
             .replace(/[\\/:*?"<>|#]/g, '_')
             .replace(/\s+/g, '_')
             .replace(/_+/g, '_')
             .trim();
 
-        if (clean.length > 35) {
-            clean = clean.substring(0, 35);
+        if (clean.length > 50) {
+            clean = clean.substring(0, 50);
         }
 
-        return `${clean}_${cleanQuality}.${ext}`.replace(/__+/g, '_');
+        return cleanQuality ? `${clean}_${cleanQuality}.${ext}`.replace(/__+/g, '_') : `${clean}.${ext}`;
     }
+
 
     // Proxy image helper to bypass referrer/hotlink protection
     function getProxyImageUrl(rawUrl) {

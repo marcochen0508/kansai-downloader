@@ -640,20 +640,20 @@ def scrape_red_fallback(url):
 
 
 def scrape_instagram_engine(url):
-    """High-availability Instagram scraper utilizing direct progressive stream resolution with guaranteed audio."""
+    """High-availability Instagram scraper utilizing direct progressive stream resolution with guaranteed audio and clean metadata."""
     clean_url = normalize_url(url)
     scraper_path = os.path.join(_SCRIPT_DIR, 'ig_scraper.js')
     
-    # 1. Fetch OpenGraph metadata from Instagram page directly for rich title/author
-    raw_title = "Instagram 貼文"
+    # 1. Fetch rich OpenGraph metadata using social bot crawler User-Agent to bypass login wall
+    raw_title = ""
     raw_desc = ""
-    uploader = "Instagram 創作者"
+    uploader = ""
     thumbnail = ""
     
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-            'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8',
+            'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+            'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
         }
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
@@ -676,19 +676,44 @@ def scrape_instagram_engine(url):
     except Exception:
         pass
 
-    m_user = re.search(r'instagram\.com/([^/]+)/', clean_url)
-    if m_user and m_user.group(1) not in ('p', 'reel', 'reels', 'tv', 'share'):
-        uploader = f"@{m_user.group(1)}"
-    elif 'on Instagram' in raw_title:
-        parts = raw_title.split('on Instagram')
-        if parts[0].strip():
-            uploader = parts[0].strip()
+    # Extract clean author name
+    m_author = re.search(r'^([^:\n]+?)(?:\s*(?:在\s*Instagram|\s+on\s+Instagram|\s*\(@[^\)]+\)))', raw_title)
+    if m_author:
+        uploader = m_author.group(1).strip()
 
-    title = raw_title
-    if raw_desc and (title.startswith('Instagram') or 'on Instagram' in title or 'Photo by' in title or 'Video by' in title):
-        title = raw_desc[:40]
-    if uploader and uploader not in title and not title.startswith(uploader):
-        title = f"{uploader} - {title}"
+    # Extract username from description or URL
+    m_user = re.search(r'([a-zA-Z0-9_\.]+)\s+(?:於|on|shared a post|posted|likes)', raw_desc) or re.search(r'instagram\.com/([^/]+)/', clean_url)
+    if m_user and m_user.group(1) not in ('p', 'reel', 'reels', 'tv', 'share'):
+        username = m_user.group(1)
+        if not uploader:
+            uploader = f"@{username}"
+        elif f"@{username}" not in uploader:
+            uploader = f"{uploader} (@{username})"
+
+    if not uploader:
+        uploader = "Instagram 創作者"
+
+    # Extract real caption text
+    caption = ""
+    m_quote = re.search(r'[:：]\s*["“](.*?)["”]?\s*$', raw_title, re.DOTALL)
+    if m_quote:
+        caption = m_quote.group(1).strip()
+    elif raw_desc:
+        m_desc_quote = re.search(r'[:：]\s*["“](.*?)["”]?\s*$', raw_desc, re.DOTALL)
+        if m_desc_quote:
+            caption = m_desc_quote.group(1).strip()
+
+    if not caption and raw_desc:
+        caption = re.sub(r'^\s*[\d,]+\s*(?:likes|views|次觀看|個讚|讚|則留言).*?[:：]\s*', '', raw_desc).strip()
+
+    clean_caption = re.sub(r'[\r\n]+', ' ', caption).strip()
+    clean_caption = re.sub(r'#\w+', '', clean_caption).strip()
+    clean_caption = clean_caption[:50].strip()
+
+    if not clean_caption:
+        clean_caption = "Instagram 短影音"
+
+    final_title = f"{uploader} - {clean_caption}" if uploader and uploader not in clean_caption else clean_caption
 
     # 2. Run high-availability direct stream scraper
     if os.path.isfile(scraper_path):
@@ -713,9 +738,9 @@ def scrape_instagram_engine(url):
                             audio_options = []
 
                             for idx, v_url in enumerate(videos_list):
-                                v_label = f"高畫質影片 {idx+1} (1080p MP4 完美有聲)" if len(videos_list) > 1 else "高畫質影片 (1080p MP4 完美有聲)"
+                                v_label_1080 = f"影片 {idx+1} (1080p Full HD 高畫質)" if len(videos_list) > 1 else "1080p Full HD 高畫質 (MP4)"
                                 video_options.append({
-                                    'quality': v_label,
+                                    'quality': v_label_1080,
                                     'height': 1080,
                                     'ext': 'mp4',
                                     'has_audio': True,
@@ -729,7 +754,7 @@ def scrape_instagram_engine(url):
                                 # Also add standard 720p option
                                 if len(videos_list) == 1:
                                     video_options.append({
-                                        'quality': '720p HD 高畫質 (MP4 完美有聲)',
+                                        'quality': '720p HD 高畫質 (MP4)',
                                         'height': 720,
                                         'ext': 'mp4',
                                         'has_audio': True,
@@ -754,8 +779,8 @@ def scrape_instagram_engine(url):
                                 return {
                                     "success": True,
                                     "platform": {"id": "instagram", "name": "Instagram", "icon": "📸", "color": "#e1306c"},
-                                    "title": title,
-                                    "description": raw_desc or title,
+                                    "title": final_title,
+                                    "description": clean_caption,
                                     "uploader": uploader,
                                     "thumbnail": scraper_thumb or thumbnail or (images_list[0] if images_list else ''),
                                     "videos": video_options,
@@ -767,6 +792,7 @@ def scrape_instagram_engine(url):
             print('[IG scraper engine error]:', e)
 
     return {"success": False, "error": "Direct resolver failed"}
+
 
 def scrape_instagram_fallback(url):
     """Fallback scraper for Instagram photo/video posts when yt-dlp fails."""
