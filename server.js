@@ -37,9 +37,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v6-guaranteed-imageio-lcaac',
-        audio_engine: 'Guaranteed Static ImageIO FFmpeg & Universal LC-AAC Engine Active',
-        updated_at: '2026-09-09 11:48'
+        version: '2026.09.09-v7-real-audio-stream-fixed',
+        audio_engine: 'Guaranteed Pure Audio Stream Muxing & Static LC-AAC Engine Active',
+        updated_at: '2026-09-09 11:56'
     });
 });
 
@@ -358,7 +358,7 @@ async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUr
             '-i', tempVideo,
             '-i', tempAudio,
             '-map', '0:v:0',
-            '-map', '1:a:0',
+            '-map', '1:a?',
             ...videoCodecArgs,
             '-c:a', 'aac',
             '-profile:a', 'aac_low',
