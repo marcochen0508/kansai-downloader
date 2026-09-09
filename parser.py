@@ -1484,24 +1484,31 @@ def parse_url(target_url):
         for f in raw_formats:
             f_url = f.get('url') or ''
             format_id = str(f.get('format_id') or '')
-            is_ig_prog = is_instagram and (
+            is_ig_prog = (is_instagram or is_facebook) and (
                 'xpv_progressive' in f_url or
                 'progressive_recipe' in f_url or
                 'dash_baseline' in f_url or
-                format_id in ('1', '2', '3', '0')
+                format_id in ('1', '2', '3', '0') or
+                (f.get('vcodec') is None and f.get('acodec') is None and f.get('ext') == 'mp4')
             )
             if is_ig_prog:
                 f['vcodec'] = 'h264'
                 f['acodec'] = 'aac'
-                if not f.get('height') and not f.get('width'):
-                    f['height'] = 720
-                    f['width'] = 1280
+                f['is_progressive'] = True
+                if not f.get('height') or not f.get('width'):
+                    m_res = re.search(r'\.(\d{3,4})\.dash_', f_url)
+                    if m_res:
+                        f['height'] = int(m_res.group(1))
+                        f['width'] = 1280
+                    else:
+                        f['height'] = 720
+                        f['width'] = 1280
 
         # Sort raw_formats so progressive streams (with both audio & video) are prioritized over video-only DASH formats
         sorted_raw_formats = sorted(
             raw_formats,
             key=lambda f: (
-                1 if ((f.get('vcodec') or 'none') != 'none' and (f.get('acodec') or 'none') != 'none') else 0,
+                1 if f.get('is_progressive') or ((f.get('vcodec') or 'none') != 'none' and (f.get('acodec') or 'none') != 'none') else 0,
                 f.get('height') or f.get('width') or 0,
                 f.get('filesize') or f.get('filesize_approx') or 0
             ),
@@ -1526,12 +1533,23 @@ def parse_url(target_url):
             if not f_url:
                 continue
 
-            vcodec = f.get('vcodec') or 'none'
-            acodec = f.get('acodec') or 'none'
-            ext = f.get('ext', 'mp4')
-            width = f.get('width') or 0
-            raw_height = f.get('height') or 0
+            raw_vcodec = f.get('vcodec')
+            raw_acodec = f.get('acodec')
             format_id = str(f.get('format_id') or '')
+            ext = f.get('ext', 'mp4')
+
+            # Recognize progressive pre-muxed streams (e.g. Instagram/FB formats 0, 1, 2, 3 where vcodec/acodec are None in yt-dlp)
+            is_progressive = False
+            if (raw_vcodec is None and raw_acodec is None and ext == 'mp4') or (format_id.isdigit()) or (format_id in ('progressive', 'direct')):
+                is_progressive = True
+                vcodec = 'h264'
+                acodec = 'aac'
+            else:
+                vcodec = raw_vcodec or 'none'
+                acodec = raw_acodec or 'none'
+
+            width = f.get('width') or 0
+            raw_height = f.get('height') or (720 if is_progressive else 0)
 
             # For vertical videos (Shorts / Reels / TikTok), resolution tier (1080p, 720p, 2K, 4K)
             # is based on min(width, raw_height) so 1080x1920 is correctly 1080p Full HD, NOT 2K.
@@ -1544,7 +1562,7 @@ def parse_url(target_url):
                 size_mb = filesize / (1024 * 1024)
                 size_str = f"{size_mb:.1f} MB"
 
-            if vcodec != 'none':
+            if vcodec != 'none' or is_progressive:
                 res_label = f"{height}p" if height else (format_note or "預設畫質")
                 if height >= 2160:
                     res_label = "4K 超高畫質 (2160p)"
@@ -1559,23 +1577,20 @@ def parse_url(target_url):
                 elif height > 0:
                     res_label = f"{height}p"
 
-                effective_format_id = format_id
-                has_own_audio = (acodec != 'none')
-                # Progressive formats (has audio and video): mark as 'direct' for fast CDN streaming
-                if (is_instagram or is_facebook or is_youtube) and has_own_audio:
-                    effective_format_id = 'direct'
+                has_own_audio = (acodec != 'none') or is_progressive
+                effective_format_id = 'direct' if has_own_audio else format_id
 
                 res_key = f"{height}"
                 if res_key not in seen_res:
                     seen_res.add(res_key)
-                    # Pass direct video stream CDN URL (f_url) and matching audio CDN stream URL (best_audio_url)
-                    # so that backend can merge them directly via FFmpeg without hitting cloud IP blocking!
+                    # For progressive formats: target_audio_url is empty because audio is already in the file!
+                    # For DASH formats: target_audio_url is best_audio_url for backend FFmpeg merging
                     target_audio_url = "" if has_own_audio else best_audio_url
                     video_options.append({
                         'quality': res_label,
                         'height': height,
                         'ext': ext,
-                        'has_audio': has_own_audio or bool(best_audio_url),
+                        'has_audio': True,
                         'size': size_str,
                         'url': f_url,
                         'audio_url': target_audio_url,

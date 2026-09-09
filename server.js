@@ -33,9 +33,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v2-instant-lossless-mux',
-        audio_engine: 'Instant Lossless Stream Muxing Active',
-        updated_at: '2026-09-09 10:55'
+        version: '2026.09.09-v3-progressive-direct-audio',
+        audio_engine: 'Progressive Direct H264+AAC Stream Active',
+        updated_at: '2026-09-09 11:18'
     });
 });
 
