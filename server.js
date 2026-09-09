@@ -37,11 +37,12 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v8-proven-audio-mux',
-        audio_engine: 'Guaranteed Pure Audio Stream Muxing & Static LC-AAC Engine Active',
-        updated_at: '2026-09-09 12:02'
+        version: '2026.09.09-v9-zero-cookie-sound-active',
+        audio_engine: 'Universal Zero-Cookie Progressive Stream Engine & Fast LC-AAC Transcoder Active',
+        updated_at: '2026-09-09 12:40'
     });
 });
+
 
 // Diagnostic FFmpeg verification endpoint
 app.get('/api/ffmpeg-status', (req, res) => {
@@ -609,7 +610,17 @@ app.get('/api/download', (req, res) => {
     }
 
     // 3. Direct Audio CDN Extraction
-    if (type === 'audio' && (targetAudioUrl || (mediaUrl && mediaUrl.startsWith('http') && (mediaUrl.includes('cdninstagram') || mediaUrl.includes('fbcdn') || mediaUrl.includes('tiktokcdn') || mediaUrl.includes('twimg'))))) {
+    if (type === 'audio' && (targetAudioUrl || (mediaUrl && mediaUrl.startsWith('http') && (
+        mediaUrl.includes('rapidcdn') ||
+        mediaUrl.includes('cdninstagram') ||
+        mediaUrl.includes('fbcdn') ||
+        mediaUrl.includes('tiktokcdn') ||
+        mediaUrl.includes('byteoversea') ||
+        mediaUrl.includes('twimg') ||
+        mediaUrl.includes('xhscdn') ||
+        formatId === 'bestaudio' ||
+        formatId === 'direct'
+    )))) {
         const streamAudioUrl = targetAudioUrl || mediaUrl;
         console.log('[Download] Direct CDN audio extract triggered');
         return extractAudioFromCdn(streamAudioUrl, safeFilename, res, targetWebpageUrl);
@@ -618,6 +629,7 @@ app.get('/api/download', (req, res) => {
     // 4. Direct CDN Progressive Stream with Guaranteed LC-AAC Audio Transcoding
     const isDirectFormat = (formatId === 'direct') && type !== 'audio';
     const isDirectCdnUrl = !isYouTube && isDirectFormat && mediaUrl && mediaUrl.startsWith('http') && (
+        mediaUrl.includes('rapidcdn') ||
         mediaUrl.includes('cdninstagram') ||
         mediaUrl.includes('fbcdn') ||
         mediaUrl.includes('fbsbx') ||
@@ -627,13 +639,15 @@ app.get('/api/download', (req, res) => {
         mediaUrl.includes('xhscdn') ||
         mediaUrl.includes('sns-video') ||
         mediaUrl.includes('bilibili') ||
-        mediaUrl.includes('bilivideo')
+        mediaUrl.includes('bilivideo') ||
+        formatId === 'direct'
     );
 
     if (isDirectCdnUrl) {
         console.log('[Stream] Direct CDN progressive stream with fast LC-AAC remux:', mediaUrl.substring(0, 80));
         return remuxProgressiveWithLcAac(mediaUrl, safeFilename, res, targetWebpageUrl);
     }
+
 
     // 5. High-speed direct resolver for YouTube
     if (isYouTube) {

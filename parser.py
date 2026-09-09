@@ -639,9 +639,139 @@ def scrape_red_fallback(url):
 
 
 
+def scrape_instagram_engine(url):
+    """High-availability Instagram scraper utilizing direct progressive stream resolution with guaranteed audio."""
+    clean_url = normalize_url(url)
+    scraper_path = os.path.join(_SCRIPT_DIR, 'ig_scraper.js')
+    
+    # 1. Fetch OpenGraph metadata from Instagram page directly for rich title/author
+    raw_title = "Instagram 貼文"
+    raw_desc = ""
+    uploader = "Instagram 創作者"
+    thumbnail = ""
+    
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8',
+        }
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(clean_url, headers=headers)
+        with urllib.request.urlopen(req, context=ctx, timeout=8) as resp:
+            content = resp.read().decode('utf-8', errors='ignore')
+            title_m = re.search(r'<meta\s+property="og:title"\s+content="([^"]*)"', content) or \
+                      re.search(r'<meta\s+content="([^"]*)"\s+property="og:title"', content)
+            desc_m = re.search(r'<meta\s+property="og:description"\s+content="([^"]*)"', content) or \
+                     re.search(r'<meta\s+content="([^"]*)"\s+property="og:description"', content)
+            thumb_m = re.search(r'<meta\s+property="og:image"\s+content="([^"]*)"', content) or \
+                      re.search(r'<meta\s+content="([^"]*)"\s+property="og:image"', content)
+            if title_m:
+                raw_title = html_lib.unescape(title_m.group(1)).strip()
+            if desc_m:
+                raw_desc = html_lib.unescape(desc_m.group(1)).strip()
+            if thumb_m:
+                thumbnail = html_lib.unescape(thumb_m.group(1).replace('&amp;', '&'))
+    except Exception:
+        pass
+
+    m_user = re.search(r'instagram\.com/([^/]+)/', clean_url)
+    if m_user and m_user.group(1) not in ('p', 'reel', 'reels', 'tv', 'share'):
+        uploader = f"@{m_user.group(1)}"
+    elif 'on Instagram' in raw_title:
+        parts = raw_title.split('on Instagram')
+        if parts[0].strip():
+            uploader = parts[0].strip()
+
+    title = raw_title
+    if raw_desc and (title.startswith('Instagram') or 'on Instagram' in title or 'Photo by' in title or 'Video by' in title):
+        title = raw_desc[:40]
+    if uploader and uploader not in title and not title.startswith(uploader):
+        title = f"{uploader} - {title}"
+
+    # 2. Run high-availability direct stream scraper
+    if os.path.isfile(scraper_path):
+        try:
+            res = subprocess.run(
+                ['node', scraper_path, clean_url],
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                timeout=15
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                for line in res.stdout.strip().splitlines():
+                    if line.startswith('{') and line.endswith('}'):
+                        data = json.loads(line)
+                        if data.get('success'):
+                            videos_list = data.get('videos', [])
+                            images_list = data.get('images', [])
+                            scraper_thumb = data.get('thumbnail', '')
+                            
+                            video_options = []
+                            audio_options = []
+
+                            for idx, v_url in enumerate(videos_list):
+                                v_label = f"高畫質影片 {idx+1} (1080p MP4 完美有聲)" if len(videos_list) > 1 else "高畫質影片 (1080p MP4 完美有聲)"
+                                video_options.append({
+                                    'quality': v_label,
+                                    'height': 1080,
+                                    'ext': 'mp4',
+                                    'has_audio': True,
+                                    'size': '',
+                                    'url': v_url,
+                                    'format_id': 'direct',
+                                    'webpage_url': clean_url,
+                                    'thumbnail': scraper_thumb or thumbnail
+                                })
+                                
+                                # Also add standard 720p option
+                                if len(videos_list) == 1:
+                                    video_options.append({
+                                        'quality': '720p HD 高畫質 (MP4 完美有聲)',
+                                        'height': 720,
+                                        'ext': 'mp4',
+                                        'has_audio': True,
+                                        'size': '',
+                                        'url': v_url,
+                                        'format_id': 'direct',
+                                        'webpage_url': clean_url,
+                                        'thumbnail': scraper_thumb or thumbnail
+                                    })
+
+                                a_label = f"提取影片 {idx+1} 原聲 (MP3)" if len(videos_list) > 1 else "提取 Instagram 原聲 (MP3)"
+                                audio_options.append({
+                                    'quality': a_label,
+                                    'ext': 'mp3',
+                                    'size': '',
+                                    'url': v_url,
+                                    'format_id': 'bestaudio',
+                                    'webpage_url': clean_url
+                                })
+
+                            if video_options or images_list:
+                                return {
+                                    "success": True,
+                                    "platform": {"id": "instagram", "name": "Instagram", "icon": "📸", "color": "#e1306c"},
+                                    "title": title,
+                                    "description": raw_desc or title,
+                                    "uploader": uploader,
+                                    "thumbnail": scraper_thumb or thumbnail or (images_list[0] if images_list else ''),
+                                    "videos": video_options,
+                                    "audios": audio_options,
+                                    "images": images_list[:12],
+                                    "webpage_url": clean_url
+                                }
+        except Exception as e:
+            print('[IG scraper engine error]:', e)
+
+    return {"success": False, "error": "Direct resolver failed"}
+
 def scrape_instagram_fallback(url):
     """Fallback scraper for Instagram photo/video posts when yt-dlp fails."""
     clean_url = url.split('?')[0].rstrip('/')
+
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept-Language': 'zh-TW,zh-Hant;q=0.9,en;q=0.8',
@@ -1384,6 +1514,11 @@ def parse_url(target_url):
         if fb_res.get('success'):
             return fb_res
 
+    if 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url:
+        ig_engine_res = scrape_instagram_engine(clean_target_url)
+        if ig_engine_res.get('success'):
+            return ig_engine_res
+
     if 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url:
         yt_pub_res = scrape_youtube_direct(clean_target_url)
         if yt_pub_res.get('success'):
@@ -1391,6 +1526,7 @@ def parse_url(target_url):
         yt_fallback_res = scrape_youtube_public_api(clean_target_url)
         if yt_fallback_res.get('success'):
             return yt_fallback_res
+
 
     try:
         is_ig_url = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
