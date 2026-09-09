@@ -33,9 +33,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v4-guaranteed-h264-audio',
-        audio_engine: 'Guaranteed H264+AAC Muxing & Progressive Stream Active',
-        updated_at: '2026-09-09 11:25'
+        version: '2026.09.09-v5-universal-lcaac-audio',
+        audio_engine: 'Universal LC-AAC Remux & Fast Muxing Engine Active',
+        updated_at: '2026-09-09 11:42'
     });
 });
 
@@ -269,8 +269,8 @@ function downloadFile(fileUrl, destPath, referer = 'https://www.instagram.com/',
     });
 }
 
-// Universal Direct CDN Muxer: Downloads video & audio CDN streams and muxes with H.264 + AAC
-async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUrl = '') {
+// Universal Direct CDN Muxer: Downloads video & audio CDN streams and muxes with H.264 + LC-AAC
+async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUrl = '', vcodec = '') {
     const fileId = `mux_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const tempVideo = path.join(tempDir, `${fileId}_v.mp4`);
     const tempAudio = path.join(tempDir, `${fileId}_a.mp4`);
@@ -297,18 +297,22 @@ async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUr
         const ffmpeg = getFfmpegPath();
         console.log(`[Mux Engine] FFmpeg fast muxing with audio (${ffmpeg})...`);
 
-        // Fast H.264+AAC muxing: transcode video to standard H.264 (yuv420p) + AAC audio for 100% sound compatibility on Windows Media Player & iOS
+        // Check if video transcoding is strictly required (VP9/AV1) or if lossless copy can be used
+        const needsVideoTranscode = vcodec && (vcodec.includes('vp9') || vcodec.includes('vp09') || vcodec.includes('av01') || vcodec.includes('av1'));
+        const videoCodecArgs = needsVideoTranscode
+            ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '26', '-pix_fmt', 'yuv420p']
+            : ['-c:v', 'copy'];
+
+        // Standard LC-AAC audio encoding ensures 100% sound playback on Windows Media Player, iOS, Android, and macOS
         const ffmpegArgs = [
             '-y',
             '-i', tempVideo,
             '-i', tempAudio,
             '-map', '0:v:0',
             '-map', '1:a:0',
-            '-c:v', 'libx264',
-            '-preset', 'ultrafast',
-            '-crf', '26',
-            '-pix_fmt', 'yuv420p',
+            ...videoCodecArgs,
             '-c:a', 'aac',
+            '-profile:a', 'aac_low',
             '-b:a', '192k',
             '-shortest',
             '-movflags', '+faststart',
@@ -352,6 +356,91 @@ async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUr
         cleanup();
         if (!res.headersSent) {
             downloadViaYtdlp(videoUrl, webpageUrl, safeFilename, res);
+        }
+    }
+}
+
+// Universal Direct CDN Progressive Stream Remuxer:
+// Ensures progressive streams (like IG / Facebook / Twitter) with HE-AAC audio are fast-converted to standard LC-AAC
+// This guarantees 100% audio compatibility on Windows Media Player, Windows 10/11 native player, iOS, QuickTime without transcoding video (takes ~1 second!)
+async function remuxProgressiveWithLcAac(mediaUrl, safeFilename, res, webpageUrl = '') {
+    const fileId = `remux_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const tempIn = path.join(tempDir, `${fileId}_in.mp4`);
+    const tempOut = path.join(tempDir, `${fileId}_out.mp4`);
+
+    const cleanup = () => {
+        try { if (fs.existsSync(tempIn)) fs.unlinkSync(tempIn); } catch(e) {}
+        try { if (fs.existsSync(tempOut)) fs.unlinkSync(tempOut); } catch(e) {}
+    };
+
+    let referer = 'https://www.instagram.com/';
+    if (webpageUrl && (webpageUrl.includes('facebook') || webpageUrl.includes('fbcdn') || webpageUrl.includes('fbsbx'))) {
+        referer = 'https://www.facebook.com/';
+    } else if (webpageUrl && (webpageUrl.includes('tiktok') || webpageUrl.includes('byteoversea'))) {
+        referer = 'https://www.tiktok.com/';
+    } else if (webpageUrl && (webpageUrl.includes('twitter') || webpageUrl.includes('x.com') || webpageUrl.includes('twimg'))) {
+        referer = 'https://x.com/';
+    }
+
+    try {
+        console.log(`[Remux Engine] Downloading progressive stream: ${mediaUrl.substring(0, 60)}...`);
+        await downloadFile(mediaUrl, tempIn, referer);
+
+        const ffmpeg = getFfmpegPath();
+        console.log(`[Remux Engine] Converting audio track to standard LC-AAC via FFmpeg (${ffmpeg})...`);
+
+        // Lossless video copy + LC-AAC transcode (ultra-fast < 1 sec, zero video quality loss, 100% Windows/iOS sound compatibility)
+        const ffmpegArgs = [
+            '-y',
+            '-i', tempIn,
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-profile:a', 'aac_low',
+            '-b:a', '192k',
+            '-movflags', '+faststart',
+            tempOut
+        ];
+
+        await new Promise((resolve, reject) => {
+            const child = spawn(ffmpeg, ffmpegArgs);
+            let errOutput = '';
+            child.stderr.on('data', d => errOutput += d.toString());
+            child.on('close', code => {
+                if (code === 0 && fs.existsSync(tempOut) && fs.statSync(tempOut).size > 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`FFmpeg remux exited with code ${code}: ${errOutput.slice(-300)}`));
+                }
+            });
+            child.on('error', reject);
+        });
+
+        const stat = fs.statSync(tempOut);
+        console.log(`[Remux Engine] Remux succeeded! File size: ${(stat.size / (1024 * 1024)).toFixed(2)} MB`);
+
+        setContentDisposition(res, safeFilename);
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Content-Length', stat.size);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+
+        const readStream = fs.createReadStream(tempOut);
+        readStream.pipe(res);
+        readStream.on('close', cleanup);
+        readStream.on('error', (err) => {
+            console.error('[Remux Engine] Stream error:', err);
+            cleanup();
+        });
+        res.on('finish', cleanup);
+        res.on('close', cleanup);
+
+    } catch (err) {
+        console.error('[Remux Engine] Remux error:', err.message);
+        cleanup();
+        if (!res.headersSent) {
+            console.log('[Remux Engine] Falling back to fetchAndStream');
+            setContentDisposition(res, safeFilename);
+            res.setHeader('Content-Type', 'video/mp4');
+            fetchAndStream(mediaUrl, res, webpageUrl, safeFilename);
         }
     }
 }
@@ -456,8 +545,8 @@ app.get('/api/download', (req, res) => {
 
     // 2. Direct Video+Audio CDN Muxing (Bypasses all cloud IP / datacenter scraping blocks!)
     if (type !== 'audio' && targetAudioUrl && mediaUrl && mediaUrl.startsWith('http') && targetAudioUrl.startsWith('http')) {
-        console.log('[Download] Direct CDN Muxing triggered for video & audio tracks');
-        return muxVideoAndAudio(mediaUrl, targetAudioUrl, safeFilename, res, targetWebpageUrl);
+        console.log(`[Download] Direct CDN Muxing triggered for video & audio tracks (vcodec: ${vcodec || 'default'})`);
+        return muxVideoAndAudio(mediaUrl, targetAudioUrl, safeFilename, res, targetWebpageUrl, vcodec);
     }
 
     // 3. Direct Audio CDN Extraction
@@ -467,7 +556,7 @@ app.get('/api/download', (req, res) => {
         return extractAudioFromCdn(streamAudioUrl, safeFilename, res, targetWebpageUrl);
     }
 
-    // 4. Direct CDN bypass ONLY for progressive streams (formatId === 'direct') that already have audio embedded
+    // 4. Direct CDN Progressive Stream with Guaranteed LC-AAC Audio Transcoding
     const isDirectFormat = (formatId === 'direct') && type !== 'audio';
     const isDirectCdnUrl = !isYouTube && isDirectFormat && mediaUrl && mediaUrl.startsWith('http') && (
         mediaUrl.includes('cdninstagram') ||
@@ -483,11 +572,8 @@ app.get('/api/download', (req, res) => {
     );
 
     if (isDirectCdnUrl) {
-        console.log('[Stream] Direct CDN progressive stream bypass:', mediaUrl.substring(0, 80));
-        const contentType = type === 'audio' ? 'audio/mpeg' : (type === 'image' ? 'image/jpeg' : 'video/mp4');
-        setContentDisposition(res, safeFilename);
-        res.setHeader('Content-Type', contentType);
-        return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
+        console.log('[Stream] Direct CDN progressive stream with fast LC-AAC remux:', mediaUrl.substring(0, 80));
+        return remuxProgressiveWithLcAac(mediaUrl, safeFilename, res, targetWebpageUrl);
     }
 
     // 5. High-speed direct resolver for YouTube
