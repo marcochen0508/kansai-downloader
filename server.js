@@ -37,9 +37,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.09-v10-clean-metadata-filename',
+        version: '2026.09.15-v11-facebook-instant-share-resolver',
         audio_engine: 'Universal Zero-Cookie Progressive Stream Engine & Rich Metadata Extraction Active',
-        updated_at: '2026-09-09 13:10'
+        updated_at: '2026-09-15 09:45'
     });
 });
 
@@ -628,7 +628,7 @@ app.get('/api/download', (req, res) => {
     }
 
     // 4. Direct CDN Progressive Stream with Guaranteed LC-AAC Audio Transcoding
-    const isDirectFormat = (formatId === 'direct') && type !== 'audio';
+    const isDirectFormat = ((formatId === 'direct') || !targetAudioUrl) && type !== 'audio';
     const isDirectCdnUrl = !isYouTube && isDirectFormat && mediaUrl && mediaUrl.startsWith('http') && (
         mediaUrl.includes('rapidcdn') ||
         mediaUrl.includes('cdninstagram') ||

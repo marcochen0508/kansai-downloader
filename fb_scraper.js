@@ -62,6 +62,26 @@ async function getSnapSaveData(targetUrl) {
         const videoLinks = [];
         
         // 1. Extract from table rows
+function unpackRapidCdnUrl(u) {
+    if (!u || typeof u !== 'string') return u;
+    if (u.includes('rapidcdn') && u.includes('token=')) {
+        try {
+            const tokenMatch = u.match(/token=([a-zA-Z0-9_\-\.]+)/);
+            if (tokenMatch) {
+                const parts = tokenMatch[1].split('.');
+                if (parts.length >= 2) {
+                    const payload = Buffer.from(parts[1], 'base64').toString('utf-8');
+                    const parsed = JSON.parse(payload);
+                    if (parsed.url && parsed.url.startsWith('http')) {
+                        return parsed.url;
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+    return u;
+}
+
         const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
         let rowMatch;
         while ((rowMatch = rowRegex.exec(htmlResult)) !== null) {
@@ -70,7 +90,8 @@ async function getSnapSaveData(targetUrl) {
             const qualityMatch = rowHtml.match(/class="video-quality"[^>]*>([^<]+)</i);
             
             if (hrefMatch) {
-                const u = hrefMatch[1].replace(/&amp;/g, '&');
+                let u = hrefMatch[1].replace(/&amp;/g, '&');
+                u = unpackRapidCdnUrl(u);
                 const qText = qualityMatch ? qualityMatch[1].trim() : 'HD';
                 if ((u.includes('rapidcdn') || u.includes('.mp4') || u.includes('fbcdn')) && !u.startsWith('/')) {
                     videoLinks.push({
@@ -86,7 +107,8 @@ async function getSnapSaveData(targetUrl) {
             const aRegex = /<a\s+[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi;
             let aMatch;
             while ((aMatch = aRegex.exec(htmlResult)) !== null) {
-                const u = aMatch[1].replace(/&amp;/g, '&');
+                let u = aMatch[1].replace(/&amp;/g, '&');
+                u = unpackRapidCdnUrl(u);
                 const label = aMatch[2].replace(/<[^>]+>/g, '').trim();
                 if ((u.includes('rapidcdn') || u.includes('.mp4') || u.includes('fbcdn')) && !u.startsWith('/')) {
                     videoLinks.push({
@@ -98,7 +120,8 @@ async function getSnapSaveData(targetUrl) {
         }
 
         const thumbMatch = htmlResult.match(/<img [^>]*src="([^"]+)"/i);
-        const thumbnail = thumbMatch ? thumbMatch[1].replace(/&amp;/g, '&') : '';
+        let thumbnail = thumbMatch ? thumbMatch[1].replace(/&amp;/g, '&') : '';
+        thumbnail = unpackRapidCdnUrl(thumbnail);
 
         const titleMatch = htmlResult.match(/<strong>([^<]+)<\/strong>/i);
         let title = titleMatch ? titleMatch[1].trim() : 'Facebook 短影音 / Reel';
@@ -123,14 +146,18 @@ async function scrapeFacebook(shareUrl) {
         return;
     }
 
-    // 1. Try initial URL directly
-    let res = await getSnapSaveData(shareUrl);
-    if (res.success && res.videos && res.videos.length > 0) {
-        console.log(JSON.stringify(res));
-        return;
+    const isShareLink = shareUrl.includes('/share/') || shareUrl.includes('fb.watch');
+
+    // 1. If not a share link, try initial URL directly first
+    if (!isShareLink) {
+        let res = await getSnapSaveData(shareUrl);
+        if (res.success && res.videos && res.videos.length > 0) {
+            console.log(JSON.stringify(res));
+            return;
+        }
     }
 
-    // 2. If initial URL fails or is a share link (/share/r/, /share/v/, /share/p/), resolve the redirect
+    // 2. If it is a share link or initial URL fails, resolve the redirect immediately
     try {
         const headRes = await fetch(shareUrl, {
             method: 'GET',

@@ -134,7 +134,38 @@ def resolve_threads_share(share_url):
                 if m3:
                     return f"https://www.threads.net/{m3.group(1)}"
 
-    return net_url  # fallback – will likely produce wrong results
+def resolve_facebook_share(share_url):
+    """Resolve Facebook /share/r/, /share/v/, /share/p/, fb.watch, or short-links to canonical URL."""
+    try:
+        headers = {
+            'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+            'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        req = urllib.request.Request(share_url, headers=headers)
+        with urllib.request.urlopen(req, context=ctx, timeout=6) as resp:
+            final_url = resp.geturl()
+            # 1. Check for /reel/<id>
+            m_reel = re.search(r'facebook\.com/reel/(\d+)', final_url)
+            if m_reel:
+                return f"https://www.facebook.com/reel/{m_reel.group(1)}/"
+            # 2. Check for story_fbid or v parameter
+            m_fbid = re.search(r'story_fbid=(\d+)', final_url) or re.search(r'[\?&]v=(\d+)', final_url)
+            if m_fbid:
+                return f"https://www.facebook.com/watch/?v={m_fbid.group(1)}"
+            # 3. Check for /videos/<id>
+            m_vid = re.search(r'facebook\.com/[^/]+/videos/(\d+)', final_url) or re.search(r'facebook\.com/watch/\?v=(\d+)', final_url)
+            if m_vid:
+                return f"https://www.facebook.com/watch/?v={m_vid.group(1)}"
+            # 4. Check for /posts/<id> or permalink
+            m_post = re.search(r'facebook\.com/[^/]+/posts/(\d+)', final_url)
+            if m_post:
+                return f"https://www.facebook.com/posts/{m_post.group(1)}"
+            return final_url.split('?')[0]
+    except Exception:
+        return share_url
 
 def normalize_url(url):
     url = url.strip()
@@ -149,6 +180,8 @@ def normalize_url(url):
             url = f"https://www.threads.net/{m.group(1)}"
         else:
             url = url.split('?')[0]
+    elif any(k in url.lower() for k in ['facebook.com/share/', 'fb.watch', 'fb.com/share']):
+        url = resolve_facebook_share(url)
     elif 'tiktok.com' in url or 'douyin.com' in url:
         url = url.split('?')[0]
     return url
@@ -1535,11 +1568,6 @@ def parse_url(target_url):
         if red_res.get('success'):
             return red_res
 
-    if 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url:
-        fb_res = scrape_facebook_fallback(clean_target_url)
-        if fb_res.get('success'):
-            return fb_res
-
     if 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url:
         ig_engine_res = scrape_instagram_engine(clean_target_url)
         if ig_engine_res.get('success'):
@@ -1595,6 +1623,16 @@ def parse_url(target_url):
         uploader = info.get('uploader') or info.get('uploader_id') or info.get('channel') or ''
         thumbnail = info.get('thumbnail') or ''
         webpage_url = info.get('webpage_url', clean_target_url)
+
+        # Clean Facebook metadata (reactions, statistics, boilerplate)
+        if platform.get('id') == 'facebook':
+            fb_c_title, fb_c_desc, fb_c_uploader = clean_fb_metadata(raw_title, description)
+            if fb_c_title:
+                raw_title = fb_c_title
+            if fb_c_desc:
+                description = fb_c_desc
+            if fb_c_uploader and fb_c_uploader != "Facebook 創作者":
+                uploader = fb_c_uploader
 
         # Clean default TikTok video #... title to human readable Chinese title
         title = raw_title.strip()
