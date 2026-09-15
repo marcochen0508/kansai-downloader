@@ -37,9 +37,9 @@ app.get('/api/health', (req, res) => {
 // Version endpoint to verify active deployed version
 app.get('/api/version', (req, res) => {
     res.json({
-        version: '2026.09.15-v11-facebook-instant-share-resolver',
-        audio_engine: 'Universal Zero-Cookie Progressive Stream Engine & Rich Metadata Extraction Active',
-        updated_at: '2026-09-15 09:45'
+        version: '2026.09.15-v12-stream-progress-zero-latency',
+        audio_engine: 'Universal Zero-Cookie Progressive Stream Engine & Real-time Progress Active',
+        updated_at: '2026-09-15 09:50'
     });
 });
 
@@ -645,6 +645,12 @@ app.get('/api/download', (req, res) => {
     );
 
     if (isDirectCdnUrl) {
+        if (mediaUrl.includes('fbcdn') || mediaUrl.includes('fbsbx') || mediaUrl.includes('tiktokcdn') || mediaUrl.includes('byteoversea') || mediaUrl.includes('twimg')) {
+            console.log('[Stream] Instant Direct Pipe Stream (Zero-Latency):', mediaUrl.substring(0, 80));
+            setContentDisposition(res, safeFilename);
+            res.setHeader('Content-Type', 'video/mp4');
+            return fetchAndStream(mediaUrl, res, targetWebpageUrl, safeFilename);
+        }
         console.log('[Stream] Direct CDN progressive stream with fast LC-AAC remux:', mediaUrl.substring(0, 80));
         return remuxProgressiveWithLcAac(mediaUrl, safeFilename, res, targetWebpageUrl);
     }

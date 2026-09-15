@@ -1712,22 +1712,26 @@ def parse_url(target_url):
 
             raw_vcodec = f.get('vcodec') or 'none'
             raw_acodec = f.get('acodec') or 'none'
-            format_id = str(f.get('format_id') or '')
-            ext = f.get('ext', 'mp4')
-
-            is_video_stream = (raw_vcodec != 'none') or ('xpv' in f_url) or ('dash' in format_id and not format_id.endswith('a')) or (format_id in ('0', '1', '2', '3') and ext == 'mp4')
+            format_id_lower = format_id.lower()
+            is_standalone_stream = format_id_lower in ('hd', 'sd') or format_id in ('0', '1', '2', '3')
+            is_video_stream = (raw_vcodec != 'none') or ('xpv' in f_url) or ('dash' in format_id and not format_id.endswith('a')) or is_standalone_stream
             is_audio_stream = (raw_acodec != 'none' and raw_vcodec == 'none') or (format_id.endswith('a') and 'dash' in format_id)
 
             width = f.get('width') or 0
             raw_height = f.get('height') or 0
             if not raw_height:
-                m_res = re.search(r'\.(\d{3,4})\.dash_', f_url)
-                if m_res:
-                    raw_height = int(m_res.group(1))
-                elif '720' in f_url:
+                if format_id_lower == 'hd':
                     raw_height = 720
-                elif '1080' in f_url:
-                    raw_height = 1080
+                elif format_id_lower == 'sd':
+                    raw_height = 480
+                else:
+                    m_res = re.search(r'\.(\d{3,4})\.dash_', f_url)
+                    if m_res:
+                        raw_height = int(m_res.group(1))
+                    elif '720' in f_url:
+                        raw_height = 720
+                    elif '1080' in f_url:
+                        raw_height = 1080
 
             # Vertical videos resolution tier
             height = min(width, raw_height) if (width > 0 and raw_height > 0) else (raw_height or 720)
@@ -1740,7 +1744,11 @@ def parse_url(target_url):
                 size_str = f"{size_mb:.1f} MB"
 
             if is_video_stream and not is_audio_stream:
-                if height >= 2160:
+                if is_standalone_stream and format_id_lower == 'hd':
+                    res_label = "720p HD 高畫質 (極速秒下載)"
+                elif is_standalone_stream and format_id_lower == 'sd':
+                    res_label = "480p 標清 (極速秒下載)"
+                elif height >= 2160:
                     res_label = "4K 超高畫質 (2160p)"
                 elif height >= 1440:
                     res_label = "2K 高畫質 (1440p)"
@@ -1755,21 +1763,21 @@ def parse_url(target_url):
                 else:
                     res_label = "高畫質影片"
 
-                vcodec = raw_vcodec if raw_vcodec != 'none' else ('h264' if 'xpv' in f_url or format_id in ('0', '1', '2', '3') else '')
+                vcodec = raw_vcodec if raw_vcodec != 'none' else ('h264' if 'xpv' in f_url or is_standalone_stream else '')
 
-                res_key = f"{height}"
+                res_key = f"{height}_{is_standalone_stream}"
                 if res_key not in seen_res:
                     seen_res.add(res_key)
                     video_options.append({
                         'quality': res_label,
-                        'height': height,
+                        'height': height + (1 if is_standalone_stream else 0),
                         'ext': ext,
                         'has_audio': True,
                         'size': size_str,
                         'url': f_url,
-                        'audio_url': best_audio_url,
+                        'audio_url': "" if is_standalone_stream else best_audio_url,
                         'vcodec': vcodec or '',
-                        'format_id': format_id,
+                        'format_id': 'direct' if is_standalone_stream else format_id,
                         'webpage_url': webpage_url
                     })
 

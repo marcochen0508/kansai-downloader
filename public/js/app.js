@@ -93,49 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ── Fetch-based Download (intercepts cookie errors) ───────────────────
-    async function startFetchDownload(dlUrl, filename, btnEl) {
-        const origHTML = btnEl ? btnEl.innerHTML : '';
-        if (btnEl) {
-            btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 準備中...';
-            btnEl.style.pointerEvents = 'none';
-            btnEl.style.opacity = '0.7';
-        }
-        try {
-            const res = await fetch(dlUrl);
-            if (res.status === 401) {
-                // Cookie expired
-                let platform = 'general';
-                try { const j = await res.json(); platform = j.platform || 'general'; } catch(e) {}
-                showCookieExpiredModal(platform);
-                return;
-            }
-            if (!res.ok) {
-                const errText = await res.text();
-                showToast('下載失敗，請稍後再試。');
-                console.error('Download error:', errText);
-                return;
-            }
-            // Stream as blob and trigger save
-            const blob = await res.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = filename || 'download.mp4';
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => { URL.revokeObjectURL(blobUrl); a.remove(); }, 5000);
-        } catch (err) {
-            showToast('下載連線失敗，請確認網路後再試。');
-            console.error('Fetch download error:', err);
-        } finally {
-            if (btnEl) {
-                btnEl.innerHTML = origHTML;
-                btnEl.style.pointerEvents = '';
-                btnEl.style.opacity = '';
-            }
-        }
-    }
+
 
     // Global platform sequence counters (e.g. FB001, IG002, YT001)
     const platformCounters = {};
@@ -481,10 +439,19 @@ document.addEventListener('DOMContentLoaded', () => {
     async function startFetchDownload(url, filename, btn) {
         const originalText = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 準備下載...';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 連線伺服器中...';
+
+        // 若伺服器需要進行高畫質轉碼合成 (約需 1~3 秒)，顯示明確提示讓使用者安心
+        const muxTimer = setTimeout(() => {
+            if (btn.disabled) {
+                btn.innerHTML = '<i class="fa-solid fa-gear fa-spin"></i> 高畫質影音封裝中...';
+            }
+        }, 1500);
 
         try {
             const response = await fetch(url);
+            clearTimeout(muxTimer);
+
             if (response.status === 401) {
                 // Cookie expired — show friendly modal
                 let platform = 'general';
@@ -492,25 +459,73 @@ document.addEventListener('DOMContentLoaded', () => {
                 showCookieExpiredModal(platform);
                 return;
             }
-            if (!response.ok) throw new Error('下載請求失敗');
+            if (!response.ok) {
+                const errTxt = await response.text();
+                throw new Error(errTxt || '下載請求失敗');
+            }
 
-            const blob = await response.blob();
-            const dlUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = dlUrl;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(dlUrl);
-            showToast('開始下載！');
+            const contentLengthHeader = response.headers.get('content-length');
+            const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
+
+            if (!response.body) {
+                const blob = await response.blob();
+                triggerBrowserSave(blob, filename);
+                showToast('開始儲存！');
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const chunks = [];
+            let receivedBytes = 0;
+            let lastUpdate = 0;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                receivedBytes += value.length;
+
+                const now = Date.now();
+                if (now - lastUpdate > 100) { // 每 100ms 更新一次進度避免過度渲染
+                    lastUpdate = now;
+                    const mbReceived = (receivedBytes / (1024 * 1024)).toFixed(1);
+                    if (totalBytes > 0) {
+                        const percent = Math.min(99, Math.round((receivedBytes / totalBytes) * 100));
+                        const mbTotal = (totalBytes / (1024 * 1024)).toFixed(1);
+                        btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-down"></i> 下載中 ${percent}% (${mbReceived}/${mbTotal}MB)`;
+                    } else {
+                        btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-down"></i> 下載中 ${mbReceived}MB...`;
+                    }
+                }
+            }
+
+            btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> 下載完成，儲存中...';
+            const blob = new Blob(chunks);
+            triggerBrowserSave(blob, filename);
+            showToast('影片已成功下載儲存！');
         } catch (err) {
+            clearTimeout(muxTimer);
             console.error(err);
             showError('下載失敗，請稍後再試。');
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }, 1500);
         }
+    }
+
+    function triggerBrowserSave(blob, filename) {
+        const dlUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        a.download = filename || 'download.mp4';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            a.remove();
+            window.URL.revokeObjectURL(dlUrl);
+        }, 1500);
     }
 
     function showError(msg) {
