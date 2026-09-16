@@ -1677,8 +1677,6 @@ def parse_url(target_url):
 
         seen_res = set()
         is_youtube = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
-        seen_res = set()
-        is_youtube = 'youtube.com' in clean_target_url or 'youtu.be' in clean_target_url
         is_instagram = 'instagram.com' in clean_target_url or 'instagr.am' in clean_target_url
         is_facebook = 'facebook.com' in clean_target_url or 'fb.watch' in clean_target_url or 'fb.com' in clean_target_url
 
@@ -1712,6 +1710,7 @@ def parse_url(target_url):
 
             raw_vcodec = f.get('vcodec') or 'none'
             raw_acodec = f.get('acodec') or 'none'
+            format_id = str(f.get('format_id') or '')
             format_id_lower = format_id.lower()
             is_standalone_stream = format_id_lower in ('hd', 'sd') or format_id in ('0', '1', '2', '3')
             is_video_stream = (raw_vcodec != 'none') or ('xpv' in f_url) or ('dash' in format_id and not format_id.endswith('a')) or is_standalone_stream
@@ -1743,6 +1742,8 @@ def parse_url(target_url):
                 size_mb = filesize / (1024 * 1024)
                 size_str = f"{size_mb:.1f} MB"
 
+            f_ext = f.get('ext') or 'mp4'
+
             if is_video_stream and not is_audio_stream:
                 if is_standalone_stream and format_id_lower == 'hd':
                     res_label = "720p HD 高畫質 (極速秒下載)"
@@ -1771,7 +1772,7 @@ def parse_url(target_url):
                     video_options.append({
                         'quality': res_label,
                         'height': height + (1 if is_standalone_stream else 0),
-                        'ext': ext,
+                        'ext': f_ext,
                         'has_audio': True,
                         'size': size_str,
                         'url': f_url,
@@ -1786,7 +1787,7 @@ def parse_url(target_url):
                 item_url = f_url
                 audio_options.append({
                     'quality': f"純音檔 ({int(abr)} kbps)",
-                    'ext': ext,
+                    'ext': 'mp3' if f_ext in ('m4a', 'mp3', 'aac', 'opus') else f_ext,
                     'size': size_str,
                     'url': item_url,
                     'format_id': format_id,
