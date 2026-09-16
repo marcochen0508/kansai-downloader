@@ -23,11 +23,11 @@ _IG_COOKIE_FILE = os.path.join(_SCRIPT_DIR, 'ig_cookies.txt')
 _YT_COOKIE_FILE = os.path.join(_SCRIPT_DIR, 'yt_cookies.txt')
 
 def _get_cookie_opts(url=''):
-    """Return cookiefile option if cookiefile exists for Meta or YouTube."""
+    """Return cookiefile option if cookiefile exists for Instagram or YouTube."""
     url_lower = url.lower()
-    is_meta = any(d in url_lower for d in ['instagram.com', 'instagr.am', 'threads.net', 'threads.com', 'facebook.com', 'fb.watch', 'fb.com'])
+    is_ig = any(d in url_lower for d in ['instagram.com', 'instagr.am', 'threads.net', 'threads.com'])
     is_yt = 'youtube.com' in url_lower or 'youtu.be' in url_lower
-    if is_meta and os.path.isfile(_IG_COOKIE_FILE):
+    if is_ig and os.path.isfile(_IG_COOKIE_FILE):
         try:
             with open(_IG_COOKIE_FILE, 'r', encoding='utf-8') as cf:
                 content = cf.read()
@@ -145,7 +145,7 @@ def resolve_facebook_share(share_url):
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         req = urllib.request.Request(share_url, headers=headers)
-        with urllib.request.urlopen(req, context=ctx, timeout=6) as resp:
+        with urllib.request.urlopen(req, context=ctx, timeout=3) as resp:
             final_url = resp.geturl()
             # 1. Check for /reel/<id>
             m_reel = re.search(r'facebook\.com/reel/(\d+)', final_url)
@@ -1593,8 +1593,6 @@ def parse_url(target_url):
                 'skip_download': True,
                 'allow_unplayable_formats': True,
                 'nocheckcertificate': True,
-                'remote_components': ['ejs:github'],
-                'js_runtimes': {'node': {}},
                 'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
                 **_get_cookie_opts(clean_target_url),
             }

@@ -249,6 +249,23 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingState.style.display = 'flex';
         btnParse.disabled = true;
 
+        const loadingTextElem = loadingState.querySelector('.loading-text');
+        const defaultLoadingText = '正在自動解析平台與提取媒體資源，請稍候...';
+        let parseSec = 0;
+        const parseTimer = setInterval(() => {
+            parseSec++;
+            if (loadingTextElem) {
+                loadingTextElem.textContent = `正在自動解析平台與提取媒體資源 (${parseSec}s)...`;
+            }
+        }, 1000);
+
+        const stopLoading = () => {
+            clearInterval(parseTimer);
+            if (loadingTextElem) loadingTextElem.textContent = defaultLoadingText;
+            loadingState.style.display = 'none';
+            btnParse.disabled = false;
+        };
+
         let data;
         try {
             const response = await fetch('/api/parse', {
@@ -260,22 +277,19 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 data = await response.json();
             } catch (jsonErr) {
-                loadingState.style.display = 'none';
-                btnParse.disabled = false;
+                stopLoading();
                 showError(`伺服器回應格式異常 (HTTP ${response.status})，請重新整理頁面再試。`);
                 return;
             }
 
-            loadingState.style.display = 'none';
-            btnParse.disabled = false;
+            stopLoading();
 
             if (!response.ok || !data.success) {
                 showError(data.error || `解析失敗 (HTTP ${response.status})，請確認連結是否正確與公開。`);
                 return;
             }
         } catch (err) {
-            loadingState.style.display = 'none';
-            btnParse.disabled = false;
+            stopLoading();
             showError(`後端連線異常 (${err.message || '無法連線伺服器'})，伺服器可能正在重啟，請稍候 10 秒後再試一次！`);
             return;
         }
