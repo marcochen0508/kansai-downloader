@@ -1745,20 +1745,38 @@ def parse_url(target_url):
             f_ext = f.get('ext') or 'mp4'
 
             if is_video_stream and not is_audio_stream:
+                has_hd_standalone = any(f.get('format_id') in ('hd', 'HD') for f in raw_formats)
+                has_sd_standalone = any(f.get('format_id') in ('sd', 'SD') for f in raw_formats)
+
+                # Skip redundant DASH streams if an instant progressive standalone stream already exists
+                if not is_standalone_stream:
+                    if height == 720 and has_hd_standalone:
+                        continue
+                    if height <= 480 and has_sd_standalone:
+                        continue
+
+                priority = height
                 if is_standalone_stream and format_id_lower == 'hd':
-                    res_label = "720p HD 高畫質 (極速秒下載)"
+                    res_label = "【推薦】720p HD 高畫質 (極速秒下載)"
+                    priority = 10000  # Put instant recommended download at the very top
                 elif is_standalone_stream and format_id_lower == 'sd':
                     res_label = "480p 標清 (極速秒下載)"
+                    priority = 2000
                 elif height >= 2160:
-                    res_label = "4K 超高畫質 (2160p)"
+                    res_label = "4K 超高畫質 (2160p - 雲端封裝)"
+                    priority = 9000
                 elif height >= 1440:
-                    res_label = "2K 高畫質 (1440p)"
+                    res_label = "2K 高畫質 (1440p - 雲端封裝)"
+                    priority = 8000
                 elif height >= 1080:
-                    res_label = "1080p Full HD"
+                    res_label = "1080p Full HD (雲端封裝)"
+                    priority = 7000
                 elif height >= 720:
-                    res_label = "720p HD"
+                    res_label = "720p HD (雲端封裝)"
+                    priority = 5000
                 elif height >= 480:
                     res_label = "480p 標清"
+                    priority = 1000
                 elif height > 0:
                     res_label = f"{height}p"
                 else:
@@ -1771,7 +1789,8 @@ def parse_url(target_url):
                     seen_res.add(res_key)
                     video_options.append({
                         'quality': res_label,
-                        'height': height + (1 if is_standalone_stream else 0),
+                        'height': height,
+                        'priority': priority,
                         'ext': f_ext,
                         'has_audio': True,
                         'size': size_str,
@@ -1794,7 +1813,7 @@ def parse_url(target_url):
                     'webpage_url': webpage_url
                 })
 
-        video_options = sorted(video_options, key=lambda x: x['height'], reverse=True)
+        video_options = sorted(video_options, key=lambda x: x.get('priority', x['height']), reverse=True)
 
         if not video_options and info.get('url'):
             video_options.append({

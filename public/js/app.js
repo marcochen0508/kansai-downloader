@@ -441,16 +441,20 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 連線伺服器中...';
 
-        // 若伺服器需要進行高畫質轉碼合成 (約需 1~3 秒)，顯示明確提示讓使用者安心
-        const muxTimer = setTimeout(() => {
+        // 若伺服器需要進行高畫質轉碼合成，動態顯示秒數計時，讓使用者清楚知道進度
+        let elapsedSec = 0;
+        const muxTimer = setInterval(() => {
             if (btn.disabled) {
-                btn.innerHTML = '<i class="fa-solid fa-gear fa-spin"></i> 高畫質影音封裝中...';
+                elapsedSec++;
+                if (elapsedSec >= 2) {
+                    btn.innerHTML = `<i class="fa-solid fa-gear fa-spin"></i> 影音封裝合成中 (${elapsedSec}s)...`;
+                }
             }
-        }, 1500);
+        }, 1000);
 
         try {
             const response = await fetch(url);
-            clearTimeout(muxTimer);
+            clearInterval(muxTimer);
 
             if (response.status === 401) {
                 // Cookie expired — show friendly modal
@@ -504,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
             triggerBrowserSave(blob, filename);
             showToast('影片已成功下載儲存！');
         } catch (err) {
-            clearTimeout(muxTimer);
+            clearInterval(muxTimer);
             console.error(err);
             showError('下載失敗，請稍後再試。');
         } finally {

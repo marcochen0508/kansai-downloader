@@ -370,6 +370,7 @@ async function muxVideoAndAudio(videoUrl, audioUrl, safeFilename, res, webpageUr
         // Standard LC-AAC audio encoding ensures 100% sound playback on Windows Media Player, iOS, Android, and macOS
         const ffmpegArgs = [
             '-y',
+            '-threads', '0',
             '-i', tempVideo,
             '-i', tempAudio,
             '-map', '0:v:0',
