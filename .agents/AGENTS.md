@@ -11,6 +11,11 @@
 
 ## 3. 雲端線上版唯一優先 (Cloud Production Only - 徹底忘記本機)
 - 本專案是給「社群廣大群友們」在公開線上網址使用的雲端系統。
-- 嚴禁向使用者提及「本機電腦」、「本機執行」、「localhost:3000」、「一鍵啟動.bat」或視為本機環境問題。
 - 所有的問題排查、修復、驗證與思考視角，必須 100% 以「雲端線上環境（Render / Zeabur 等雲端伺服器）」與群友的真實使用體驗為唯一標準。
+
+## 4. 雲端平台帳號與服務資訊 (Cloud Platform Accounts)
+- **Render.com 服務網址**：`https://kansai-downloader-9jdz.onrender.com`
+- **Render 登入帳號 / Email**：`marcochen0007@gmail.com`
+- **GitHub 專案**：`https://github.com/marcochen0508/kansai-downloader`
+
 
