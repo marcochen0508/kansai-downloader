@@ -172,11 +172,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // Proxy image helper to bypass referrer/hotlink protection
+    // Direct CDN image helper with zero server bandwidth overhead
     function getProxyImageUrl(rawUrl) {
         if (!rawUrl) return '';
-        return `/api/proxy-image?url=${safeEncode(rawUrl)}`;
+        return rawUrl;
     }
+
 
     // Real-time Platform Detector
     function detectPlatformClient(url) {
@@ -355,17 +356,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dlProxyUrl = `/api/download?filename=${safeEncode(targetFilename)}&type=video&webpageUrl=${safeEncode(itemWebpageUrl)}&formatId=${safeEncode(vid.format_id || '')}&url=${safeEncode(vid.url)}${vid.audio_url ? `&audioUrl=${safeEncode(vid.audio_url)}` : ''}${vid.vcodec ? `&vcodec=${safeEncode(vid.vcodec)}` : ''}`;
 
                 const itemVidThumb = vid.thumbnail || data.thumbnail || '';
-                const proxiedVidThumb = getProxyImageUrl(itemVidThumb);
 
                 item.innerHTML = `
                     <div class="item-media-left">
-                        ${proxiedVidThumb ? `<img src="${proxiedVidThumb}" class="item-thumb" alt="影片預覽">` : `<div class="item-thumb-placeholder"><i class="fa-solid fa-film"></i></div>`}
+                        ${itemVidThumb ? `<img src="${itemVidThumb}" referrerpolicy="no-referrer" loading="lazy" class="item-thumb" alt="影片預覽" onerror="if(!this.dataset.retried){this.dataset.retried='1';this.src='/api/proxy-image?url='+encodeURIComponent('${safeEncode(itemVidThumb)}');}">` : `<div class="item-thumb-placeholder"><i class="fa-solid fa-film"></i></div>`}
                         <div class="item-info">
                             <span class="badge-quality">🎬 ${vid.quality}</span>
                             <span class="item-name">${vid.ext.toUpperCase()} 影片 ${vid.size ? '(' + vid.size + ')' : ''}</span>
                         </div>
                     </div>
-                    <button type="button" class="btn-dl" data-dl-url="${dlProxyUrl}" data-filename="${targetFilename}">
+                    <button type="button" class="btn-dl" data-dl-url="${dlProxyUrl}" data-direct-url="${vid.url || ''}" data-has-audio-merge="${vid.audio_url ? '1' : '0'}" data-filename="${targetFilename}">
                         <i class="fa-solid fa-download"></i> 下載影片
                     </button>
                 `;
@@ -388,13 +388,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 item.innerHTML = `
                     <div class="item-media-left">
-                        ${proxiedPosterUrl ? `<img src="${proxiedPosterUrl}" class="item-thumb" alt="音檔預覽">` : `<div class="item-thumb-placeholder"><i class="fa-solid fa-music"></i></div>`}
+                        ${posterUrl ? `<img src="${posterUrl}" referrerpolicy="no-referrer" loading="lazy" class="item-thumb" alt="音檔預覽" onerror="if(!this.dataset.retried){this.dataset.retried='1';this.src='/api/proxy-image?url='+encodeURIComponent('${safeEncode(posterUrl)}');}">` : `<div class="item-thumb-placeholder"><i class="fa-solid fa-music"></i></div>`}
                         <div class="item-info">
                             <span class="badge-audio">🎵 ${aud.quality}</span>
                             <span class="item-name">${aud.ext.toUpperCase()} 音訊檔 ${aud.size ? '(' + aud.size + ')' : ''}</span>
                         </div>
                     </div>
-                    <button type="button" class="btn-dl" style="background-color: #8b5cf6;" data-dl-url="${dlProxyUrl}" data-filename="${targetFilename}">
+                    <button type="button" class="btn-dl" style="background-color: #8b5cf6;" data-dl-url="${dlProxyUrl}" data-direct-url="${aud.url || ''}" data-has-audio-merge="0" data-filename="${targetFilename}">
                         <i class="fa-solid fa-music"></i> 提取 MP3
                     </button>
                 `;
@@ -404,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
             audioOptionGroup.style.display = 'none';
         }
 
-        // Image List (With proxied visual photo thumbnail preview right next to each photo's download button!)
+        // Image List (With direct CDN loading first to preserve 0 server bandwidth)
         if (data.images && data.images.length > 0) {
             imageOptionGroup.style.display = 'flex';
             data.images.forEach((imgUrl, index) => {
@@ -419,19 +419,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const cleanName = makeCleanFilename(data.title, labelText, "jpg", platformId, currentSeqName);
-                const proxiedImgUrl = getProxyImageUrl(imgUrl);
+                const dlProxyImgUrl = `/api/download?url=${safeEncode(imgUrl)}&filename=${safeEncode(cleanName)}&type=image`;
 
                 item.innerHTML = `
                     <div class="item-media-left">
-                        <img src="${proxiedImgUrl}" class="item-thumb" alt="${labelText}">
+                        <img src="${imgUrl}" referrerpolicy="no-referrer" loading="lazy" class="item-thumb" alt="${labelText}" onerror="if(!this.dataset.retried){this.dataset.retried='1';this.src='/api/proxy-image?url='+encodeURIComponent('${safeEncode(imgUrl)}');}">
                         <div class="item-info">
                             <span class="badge-quality" style="background-color: #ec4899;">🖼️ ${labelText}</span>
                             <span class="item-name">高清 JPEG 圖片</span>
                         </div>
                     </div>
-                    <a href="/api/download?url=${safeEncode(imgUrl)}&filename=${safeEncode(cleanName)}&type=image" download="${cleanName}" class="btn-dl" style="background-color: #ec4899;">
+                    <button type="button" class="btn-dl" style="background-color: #ec4899;" data-dl-url="${dlProxyImgUrl}" data-direct-url="${imgUrl}" data-has-audio-merge="0" data-filename="${cleanName}">
                         <i class="fa-solid fa-file-image"></i> 下載照片
-                    </a>
+                    </button>
                 `;
                 imageList.appendChild(item);
             });
@@ -442,17 +442,81 @@ document.addEventListener('DOMContentLoaded', () => {
         resultCard.style.display = 'flex';
         resultCard.scrollIntoView({ behavior: 'smooth' });
 
-        // Bind fetch-based download to all btn-dl buttons (video & audio)
+        // Bind fetch-based download to all btn-dl buttons (video, audio, and image)
         resultCard.querySelectorAll('button.btn-dl[data-dl-url]').forEach(btn => {
             btn.addEventListener('click', () => {
-                startFetchDownload(btn.dataset.dlUrl, btn.dataset.filename, btn);
+                startFetchDownload(btn.dataset.dlUrl, btn.dataset.filename, btn, btn.dataset.directUrl, btn.dataset.hasAudioMerge === '1');
             });
         });
     }
 
-    async function startFetchDownload(url, filename, btn) {
+    async function startFetchDownload(url, filename, btn, directUrl = '', hasAudioMerge = false) {
         const originalText = btn.innerHTML;
         btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 準備下載中...';
+
+        // 策略 1：若為單一完整媒體（照片或免合成影片），優先由前端直接從官方 CDN 下載（0 伺服器流量）
+        if (directUrl && !hasAudioMerge && directUrl.startsWith('http')) {
+            try {
+                const directResp = await fetch(directUrl, { mode: 'cors' });
+                if (directResp.ok) {
+                    const contentLength = directResp.headers.get('content-length');
+                    const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+                    
+                    if (!directResp.body) {
+                        const blob = await directResp.blob();
+                        triggerBrowserSave(blob, filename);
+                        showToast('已由官方高速通道直接下載！');
+                        btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> 下載完成！';
+                        setTimeout(() => {
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                        }, 1200);
+                        return;
+                    }
+
+                    const reader = directResp.body.getReader();
+                    const chunks = [];
+                    let receivedBytes = 0;
+                    let lastUpdate = 0;
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        receivedBytes += value.length;
+
+                        const now = Date.now();
+                        if (now - lastUpdate > 100) {
+                            lastUpdate = now;
+                            const mbReceived = (receivedBytes / (1024 * 1024)).toFixed(1);
+                            if (totalBytes > 0) {
+                                const percent = Math.min(99, Math.round((receivedBytes / totalBytes) * 100));
+                                const mbTotal = (totalBytes / (1024 * 1024)).toFixed(1);
+                                btn.innerHTML = `<i class="fa-solid fa-bolt"></i> 高速下載 ${percent}% (${mbReceived}/${mbTotal}MB)`;
+                            } else {
+                                btn.innerHTML = `<i class="fa-solid fa-bolt"></i> 高速下載 ${mbReceived}MB...`;
+                            }
+                        }
+                    }
+
+                    btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> 下載完成，儲存中...';
+                    const blob = new Blob(chunks);
+                    triggerBrowserSave(blob, filename);
+                    showToast('已成功下載儲存！');
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    }, 1200);
+                    return;
+                }
+            } catch (directErr) {
+                // 若官方 CDN 阻擋跨域 (CORS/防盜鏈)，自動無縫降級回退到後端通道
+                console.log('[Direct Download] 官方 CDN 限制跨域，自動無縫切換至安全伺服器通道...');
+            }
+        }
+
+        // 策略 2：伺服器通道（處理音視頻合成軌道、或有跨域防盜鏈限制之平台）
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 連線伺服器中...';
 
         // 若伺服器需要進行高畫質轉碼合成，動態顯示秒數計時，讓使用者清楚知道進度
@@ -477,6 +541,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showCookieExpiredModal(platform);
                 return;
             }
+
             if (!response.ok) {
                 const errTxt = await response.text();
                 throw new Error(errTxt || '下載請求失敗');
