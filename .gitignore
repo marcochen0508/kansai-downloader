@@ -17,3 +17,6 @@ scratch/
 bin/
 *.exe
 sync_to_hf.py
+*朋友分享包*
+*.zip
+create_share_package.py
