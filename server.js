@@ -23,6 +23,11 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Lite / Simple streamlined version
+app.get(['/lite', '/simple'], (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'lite.html'));
+});
+
 // Ensure temp directory exists
 const tempDir = path.join(__dirname, 'temp');
 if (!fs.existsSync(tempDir)) {

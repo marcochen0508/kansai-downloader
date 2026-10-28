@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="referrer" content="no-referrer">
+    <title>⚡ 影音極簡下載 - 手機與電腦極速版</title>
+    
+    <!-- 圖示與 PWA -->
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="manifest" href="site.webmanifest">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-title" content="極簡影音下載">
+    <meta name="application-name" content="極簡影音下載">
+    
+    <!-- 字體與圖標庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/lite.css?v=20261028_v1">
+</head>
+<body>
+    <div class="lite-app">
+        <!-- iOS App 內瀏覽器警告 -->
+        <div class="iab-warning-banner" id="iabWarningBanner" style="display: none;">
+            <div class="iab-icon"><i class="fa-solid fa-compass"></i></div>
+            <div class="iab-content">
+                <strong>⚠️ 偵測到社群內建瀏覽器 (LINE / IG / FB)</strong>
+                <p>請點選右下角或右上角的<strong>「在 Safari 或系統瀏覽器開啟」</strong>，方可順利儲存至手機相簿！</p>
+            </div>
+        </div>
+
+        <!-- 頂部導航 -->
+        <header class="lite-nav">
+            <div class="nav-brand">
+                <span class="brand-logo">⚡</span>
+                <span class="brand-title">影音極速下載</span>
+                <span class="brand-pill">極簡版</span>
+            </div>
+            <a href="/" class="btn-nav-switch" title="切換至完整功能版">
+                <i class="fa-solid fa-layer-group"></i> 完整版
+            </a>
+        </header>
+
+        <!-- 主體內容 -->
+        <main class="lite-container">
+            <!-- 標題提示 -->
+            <div class="hero-section">
+                <h1 class="hero-title">一鍵下載最佳畫質</h1>
+                <p class="hero-desc">貼上社群網址，自動挑選最適高畫質，省時不佔空間！</p>
+            </div>
+
+            <!-- 輸入卡片 -->
+            <div class="lite-card input-box-card">
+                <div class="input-row">
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-link input-icon"></i>
+                        <input type="url" id="urlInput" placeholder="貼上 YouTube / IG / FB / TikTok / Threads 網址..." autocomplete="off">
+                        <button type="button" class="btn-inline-paste" id="btnPaste" title="貼上剪貼簿內容">
+                            <i class="fa-regular fa-paste"></i> 貼上
+                        </button>
+                    </div>
+                </div>
+
+                <button type="button" class="btn-main-parse" id="btnParse">
+                    <i class="fa-solid fa-bolt"></i> 立即解析
+                </button>
+
+                <!-- 支援平台圖示列表 -->
+                <div class="platform-strip">
+                    <span title="YouTube"><i class="fa-brands fa-youtube"></i></span>
+                    <span title="Instagram"><i class="fa-brands fa-instagram"></i></span>
+                    <span title="Facebook"><i class="fa-brands fa-facebook"></i></span>
+                    <span title="TikTok"><i class="fa-brands fa-tiktok"></i></span>
+                    <span title="Threads"><i class="fa-brands fa-threads"></i></span>
+                    <span title="X / Twitter"><i class="fa-brands fa-x-twitter"></i></span>
+                    <span title="小紅書"><i class="fa-solid fa-book-bookmark"></i></span>
+                </div>
+            </div>
+
+            <!-- 解析載入狀態 -->
+            <div class="lite-card loading-card" id="loadingCard" style="display: none;">
+                <div class="pulse-spinner"></div>
+                <div class="loading-msg" id="loadingMsg">正在解析媒體資源，請稍候...</div>
+            </div>
+
+            <!-- 錯誤提示 -->
+            <div class="error-card" id="errorCard" style="display: none;">
+                <i class="fa-solid fa-circle-exclamation error-icon"></i>
+                <div class="error-text" id="errorText">解析失敗，請確認網址是否正確。</div>
+            </div>
+
+            <!-- 解析結果卡片 -->
+            <div class="lite-card result-card" id="resultCard" style="display: none;">
+                <!-- 媒體資訊條 -->
+                <div class="media-header">
+                    <div class="media-thumb-box">
+                        <img id="mediaThumb" src="" alt="預覽" referrerpolicy="no-referrer" onerror="this.src='icon-512.png';">
+                        <span class="media-badge" id="mediaBadge">YouTube</span>
+                    </div>
+                    <div class="media-meta">
+                        <h2 class="media-title" id="mediaTitle">影片或貼文標題</h2>
+                        <div class="media-sub">
+                            <span class="media-author" id="mediaAuthor"><i class="fa-regular fa-user"></i> 創作者</span>
+                            <a href="#" target="_blank" rel="noopener" class="media-link" id="mediaOriginLink" title="前往原貼文">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> 原貼文
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 核心主要下載區：只給最適當的單一/標準畫質 -->
+                <div class="hero-download-section" id="heroDownloadSection">
+                    <!-- 由 JS 動態插入主要下載按鈕 -->
+                </div>
+
+                <!-- 次要操作列：MP3、原圖、複製內文 -->
+                <div class="secondary-actions" id="secondaryActions">
+                    <!-- 由 JS 動態生成 -->
+                </div>
+
+                <!-- 貼文內文展開區塊 (可選折疊) -->
+                <div class="caption-wrapper" id="captionWrapper" style="display: none;">
+                    <button type="button" class="btn-toggle-caption" id="btnToggleCaption">
+                        <span><i class="fa-regular fa-file-lines"></i> 查看貼文內文</span>
+                        <i class="fa-solid fa-chevron-down toggle-arrow" id="toggleArrow"></i>
+                    </button>
+                    <div class="caption-body" id="captionBody" style="display: none;">
+                        <div class="caption-content" id="captionContent"></div>
+                        <button type="button" class="btn-copy-inline" id="btnCopyCaption">
+                            <i class="fa-regular fa-copy"></i> 複製內文
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 其他畫質 (極簡折疊選單，預設不干擾) -->
+                <div class="alt-formats-wrapper" id="altFormatsWrapper" style="display: none;">
+                    <button type="button" class="btn-toggle-alt" id="btnToggleAlt">
+                        <span>其他畫質選項 (若需要可展開)</span>
+                        <i class="fa-solid fa-chevron-down toggle-alt-arrow" id="toggleAltArrow"></i>
+                    </button>
+                    <div class="alt-formats-list" id="altFormatsList" style="display: none;">
+                        <!-- 由 JS 填充其他非主要畫質 -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 提示 Toast -->
+        <div class="toast-msg" id="toastMsg">已複製到剪貼簿！</div>
+
+        <!-- 頁尾 -->
+        <footer class="lite-footer">
+            <p>⚡ 影音極速下載 ‧ 手機與電腦極簡版</p>
+            <p class="footer-sub">僅供個人旅遊交流與備份使用，尊重創作者版權</p>
+        </footer>
+    </div>
+
+    <!-- Cookie Expired Modal -->
+    <div class="cookie-expired-overlay" id="cookieExpiredOverlay" style="display:none;">
+        <div class="cookie-expired-card">
+            <div class="cookie-expired-icon">🔐</div>
+            <h3 class="cookie-expired-title">授權憑證需維護</h3>
+            <p class="cookie-expired-desc" id="cookieExpiredDesc">
+                社群平台授權憑證已過期，請通知管理員更新，更新後即可自動恢復。
+            </p>
+            <button type="button" class="btn-cookie-close" id="btnCookieClose">
+                我知道了
+            </button>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. 檢測社群 App 內建瀏覽器 (LINE / IG / FB)
+        function checkInAppBrowser() {
+            const ua = navigator.userAgent || navigator.vendor || window.opera;
+            const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const isInApp = /Line|FB_IAB|FBAN|FBAV|Instagram|MicroMessenger|Twitter/i.test(ua);
+            if (isIOS && isInApp) {
+                const banner = document.getElementById('iabWarningBanner');
+                if (banner) banner.style.display = 'flex';
+            }
+        }
+        checkInAppBrowser();
+
+        // DOM 元素引用
+        const urlInput = document.getElementById('urlInput');
+        const btnPaste = document.getElementById('btnPaste');
+        const btnParse = document.getElementById('btnParse');
+        
+        const loadingCard = document.getElementById('loadingCard');
+        const loadingMsg = document.getElementById('loadingMsg');
+        const errorCard = document.getElementById('errorCard');
+        const errorText = document.getElementById('errorText');
+        
+        const resultCard = document.getElementById('resultCard');
+        const mediaThumb = document.getElementById('mediaThumb');
+        const mediaBadge = document.getElementById('mediaBadge');
+        const mediaTitle = document.getElementById('mediaTitle');
+        const mediaAuthor = document.getElementById('mediaAuthor');
+        const mediaOriginLink = document.getElementById('mediaOriginLink');
+        
+        const heroDownloadSection = document.getElementById('heroDownloadSection');
+        const secondaryActions = document.getElementById('secondaryActions');
+        
+        const captionWrapper = document.getElementById('captionWrapper');
+        const btnToggleCaption = document.getElementById('btnToggleCaption');
+        const captionBody = document.getElementById('captionBody');
+        const captionContent = document.getElementById('captionContent');
+        const btnCopyCaption = document.getElementById('btnCopyCaption');
+        const toggleArrow = document.getElementById('toggleArrow');
+        
+        const altFormatsWrapper = document.getElementById('altFormatsWrapper');
+        const btnToggleAlt = document.getElementById('btnToggleAlt');
+        const altFormatsList = document.getElementById('altFormatsList');
+        const toggleAltArrow = document.getElementById('toggleAltArrow');
+        
+        const toastMsg = document.getElementById('toastMsg');
+        const cookieExpiredOverlay = document.getElementById('cookieExpiredOverlay');
+        const btnCookieClose = document.getElementById('btnCookieClose');
+
+        // Toast 訊息提示
+        function showToast(text, duration = 2200) {
+            if (!toastMsg) return;
+            toastMsg.textContent = text;
+            toastMsg.classList.add('show');
+            setTimeout(() => {
+                toastMsg.classList.remove('show');
+            }, duration);
+        }
+
+        // 安全 URI 編碼
+        function safeEncode(str) {
+            if (!str) return '';
+            try {
+                const cleanStr = String(str).replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/g, '');
+                return encodeURIComponent(cleanStr);
+            } catch (e) {
+                return encodeURIComponent(String(str).replace(/[^\x00-\x7F]/g, ''));
+            }
+        }
+
+        // Cookie 過期彈窗
+        function showCookieExpiredModal() {
+            if (cookieExpiredOverlay) cookieExpiredOverlay.style.display = 'flex';
+        }
+        if (btnCookieClose) {
+            btnCookieClose.addEventListener('click', () => {
+                if (cookieExpiredOverlay) cookieExpiredOverlay.style.display = 'none';
+            });
+        }
+
+        // 一鍵貼上按鈕（貼上後自動解析）
+        if (btnPaste) {
+            btnPaste.addEventListener('click', async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text && text.trim()) {
+                        urlInput.value = text.trim();
+                        showToast('已貼上網址，自動開始解析！');
+                        startParse();
+                    } else {
+                        showToast('剪貼簿中未偵測到網址，請手動輸入');
+                    }
+                } catch (err) {
+                    urlInput.focus();
+                    showToast('請直接在輸入框內按貼上');
+                }
+            });
+        }
+
+        // 按 Enter 鍵或點擊立即解析
+        btnParse.addEventListener('click', startParse);
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') startParse();
+        });
+
+        // 智能挑選「最適中畫質」：不要太差 (排除 <=360p)、不用最高 (排除 4K/2K)，優先 720p / 1080p
+        function pickModerateVideo(videos) {
+            if (!videos || videos.length === 0) return null;
+            if (videos.length === 1) return { main: videos[0], alts: [] };
+
+            function scoreQuality(vid) {
+                const q = (vid.quality || '').toLowerCase();
+                const h = vid.height || 0;
+
+                if (h === 720 || q.includes('720')) return 100;
+                if (h === 1080 || q.includes('1080')) return 90;
+                if (h === 480 || h === 540 || q.includes('480') || q.includes('540')) return 75;
+                if (h >= 1440 || q.includes('1440') || q.includes('2k')) return 30;
+                if (h >= 2160 || q.includes('2160') || q.includes('4k')) return 20;
+                if (h <= 360 || q.includes('360')) return 40;
+                return 60;
+            }
+
+            const sorted = [...videos].sort((a, b) => scoreQuality(b) - scoreQuality(a));
+            const main = sorted[0];
+            const alts = sorted.slice(1);
+            return { main, alts };
+        }
+
+        // 檔名美化 helper
+        function sanitizeFilename(title, qualityTag, ext) {
+            let clean = (title || 'video')
+                .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/g, '')
+                .replace(/[\\/:*?"<>|#]/g, '_')
+                .replace(/\s+/g, '_')
+                .replace(/_+/g, '_')
+                .trim();
+            if (clean.length > 40) clean = clean.substring(0, 40);
+            return `${clean}_${qualityTag}.${ext}`;
+        }
+
+        // 開始解析
+        async function startParse() {
+            const rawUrl = urlInput.value.trim();
+            if (!rawUrl) {
+                showError('請先貼上社群影音或貼文網址！');
+                return;
+            }
+
+            // 重設狀態
+            errorCard.style.display = 'none';
+            resultCard.style.display = 'none';
+            loadingCard.style.display = 'flex';
+            btnParse.disabled = true;
+
+            let sec = 0;
+            const timer = setInterval(() => {
+                sec++;
+                if (loadingMsg) loadingMsg.textContent = `正在智慧解析影音資源 (${sec}s)...`;
+            }, 1000);
+
+            const stopLoading = () => {
+                clearInterval(timer);
+                loadingCard.style.display = 'none';
+                btnParse.disabled = false;
+            };
+
+            try {
+                const resp = await fetch('/api/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: rawUrl })
+                });
+
+                let data;
+                try {
+                    data = await resp.json();
+                } catch (je) {
+                    stopLoading();
+                    showError(`伺服器解析異常 (HTTP ${resp.status})，請稍後重試。`);
+                    return;
+                }
+
+                stopLoading();
+
+                if (!resp.ok || !data.success) {
+                    showError(data.error || '解析失敗，請確認該連結是否為公開可觀看之內容。');
+                    return;
+                }
+
+                renderLiteResult(data, rawUrl);
+            } catch (err) {
+                stopLoading();
+                showError(`網路或伺服器連線異常 (${err.message})，請檢查網路連線或稍後再試。`);
+            }
+        }
+
+        function showError(msg) {
+            errorText.textContent = msg;
+            errorCard.style.display = 'flex';
+            errorCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // 渲染極簡結果
+        function renderLiteResult(data, targetUrl) {
+            // 媒體基本資訊
+            const posterUrl = data.thumbnail || (data.images && data.images.length > 0 ? data.images[0] : 'icon-512.png');
+            mediaThumb.src = posterUrl;
+            mediaBadge.textContent = data.platform?.name || '社群平台';
+            mediaTitle.textContent = data.title || '社群媒體內容';
+            mediaAuthor.innerHTML = `<i class="fa-regular fa-user"></i> ${data.uploader || '社群創作者'}`;
+            mediaOriginLink.href = data.webpage_url || targetUrl;
+
+            // 清空容器
+            heroDownloadSection.innerHTML = '';
+            secondaryActions.innerHTML = '';
+            altFormatsList.innerHTML = '';
+            altFormatsWrapper.style.display = 'none';
+
+            const platformId = data.platform?.id || 'general';
+            const hasVideos = data.videos && data.videos.length > 0;
+            const hasImages = data.images && data.images.length > 0;
+            const hasAudios = data.audios && data.audios.length > 0;
+
+            // ==========================================
+            // 1. 核心焦點按鈕：挑選最適畫質 (不要太差、不用最高)
+            // ==========================================
+            if (hasVideos) {
+                const { main, alts } = pickModerateVideo(data.videos);
+                
+                // 標示畫質規格標籤 (如 720p 適合手機與電腦)
+                let qualityTag = '720p';
+                if (String(main.quality).includes('1080')) qualityTag = '1080p';
+                else if (String(main.quality).includes('720')) qualityTag = '720p';
+                else if (String(main.quality).includes('480')) qualityTag = '480p';
+                else qualityTag = '標準畫質';
+
+                const targetFilename = sanitizeFilename(data.title, qualityTag, main.ext || 'mp4');
+                const itemWebpageUrl = main.webpage_url || data.webpage_url || targetUrl;
+                const dlProxyUrl = `/api/download?filename=${safeEncode(targetFilename)}&type=video&webpageUrl=${safeEncode(itemWebpageUrl)}&formatId=${safeEncode(main.format_id || '')}&url=${safeEncode(main.url)}${main.audio_url ? `&audioUrl=${safeEncode(main.audio_url)}` : ''}${main.vcodec ? `&vcodec=${safeEncode(main.vcodec)}` : ''}`;
+
+                const heroBtn = document.createElement('button');
+                heroBtn.className = 'btn-hero-dl';
+                heroBtn.innerHTML = `
+                    <span class="btn-hero-main-text">
+                        <i class="fa-solid fa-cloud-arrow-down"></i> 下載影片 (${qualityTag} 標準高畫質)
+                    </span>
+                    <span class="btn-hero-sub-text">
+                        ${(main.ext || 'MP4').toUpperCase()} ${main.size ? '‧ ' + main.size : ''} ‧ 適合手機與電腦流暢播放
+                    </span>
+                `;
+
+                heroBtn.addEventListener('click', () => {
+                    startStreamDownload(dlProxyUrl, targetFilename, heroBtn, main.url || '', !!main.audio_url);
+                });
+
+                heroDownloadSection.appendChild(heroBtn);
+
+                // 若還有其他畫質（如 1080p 或 480p），放進折疊備選，不干擾主介面
+                if (alts && alts.length > 0) {
+                    altFormatsWrapper.style.display = 'block';
+                    alts.forEach(altVid => {
+                        const altItem = document.createElement('div');
+                        altItem.className = 'alt-format-item';
+                        const altFilename = sanitizeFilename(data.title, altVid.quality || 'alt', altVid.ext || 'mp4');
+                        const altDlUrl = `/api/download?filename=${safeEncode(altFilename)}&type=video&webpageUrl=${safeEncode(itemWebpageUrl)}&formatId=${safeEncode(altVid.format_id || '')}&url=${safeEncode(altVid.url)}${altVid.audio_url ? `&audioUrl=${safeEncode(altVid.audio_url)}` : ''}${altVid.vcodec ? `&vcodec=${safeEncode(altVid.vcodec)}` : ''}`;
+
+                        altItem.innerHTML = `
+                            <span class="alt-format-label">🎬 ${altVid.quality} ${(altVid.ext || 'mp4').toUpperCase()} ${altVid.size ? '(' + altVid.size + ')' : ''}</span>
+                            <button type="button" class="btn-alt-dl">下載</button>
+                        `;
+                        altItem.querySelector('.btn-alt-dl').addEventListener('click', (e) => {
+                            startStreamDownload(altDlUrl, altFilename, e.currentTarget, altVid.url || '', !!altVid.audio_url);
+                        });
+                        altFormatsList.appendChild(altItem);
+                    });
+                }
+            } else if (hasImages) {
+                // 純圖片貼文，大按鈕直接變成下載照片
+                const firstImg = data.images[0];
+                const cleanImgName = sanitizeFilename(data.title, 'photo_1', 'jpg');
+                const dlImgUrl = `/api/download?url=${safeEncode(firstImg)}&filename=${safeEncode(cleanImgName)}&type=image`;
+
+                const heroBtn = document.createElement('button');
+                heroBtn.className = 'btn-hero-dl';
+                heroBtn.style.background = 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)';
+                heroBtn.innerHTML = `
+                    <span class="btn-hero-main-text">
+                        <i class="fa-regular fa-image"></i> 下載高清照片 ${data.images.length > 1 ? `(第 1 張 / 共 ${data.images.length} 張)` : ''}
+                    </span>
+                    <span class="btn-hero-sub-text">高解析度原圖 ‧ 儲存到相簿</span>
+                `;
+                heroBtn.addEventListener('click', () => {
+                    startStreamDownload(dlImgUrl, cleanImgName, heroBtn, firstImg, false);
+                });
+                heroDownloadSection.appendChild(heroBtn);
+            }
+
+            // ==========================================
+            // 2. 次要快捷操作列 (MP3 音檔、照片圖集、複製內文)
+            // ==========================================
+            // (A) MP3 音訊按鈕
+            if (hasAudios) {
+                const aud = data.audios[0];
+                const audFilename = sanitizeFilename(data.title, 'audio', 'mp3');
+                const audDlUrl = `/api/download?filename=${safeEncode(audFilename)}&type=audio&webpageUrl=${safeEncode(data.webpage_url || targetUrl)}&formatId=${safeEncode(aud.format_id || '')}&url=${safeEncode(aud.url)}`;
+
+                const btnMp3 = document.createElement('button');
+                btnMp3.type = 'button';
+                btnMp3.className = 'btn-sec-action accent-audio';
+                btnMp3.innerHTML = `<i class="fa-solid fa-music"></i> 提取 MP3 音檔`;
+                btnMp3.addEventListener('click', () => {
+                    startStreamDownload(audDlUrl, audFilename, btnMp3, aud.url || '', false);
+                });
+                secondaryActions.appendChild(btnMp3);
+            }
+
+            // (B) 貼文有照片且有影片時，提供下載照片的快捷鈕
+            if (hasImages && hasVideos) {
+                const firstImg = data.images[0];
+                const cleanImgName = sanitizeFilename(data.title, 'photo', 'jpg');
+                const dlImgUrl = `/api/download?url=${safeEncode(firstImg)}&filename=${safeEncode(cleanImgName)}&type=image`;
+
+                const btnImg = document.createElement('button');
+                btnImg.type = 'button';
+                btnImg.className = 'btn-sec-action accent-image';
+                btnImg.innerHTML = `<i class="fa-regular fa-image"></i> 下載封面原圖`;
+                btnImg.addEventListener('click', () => {
+                    startStreamDownload(dlImgUrl, cleanImgName, btnImg, firstImg, false);
+                });
+                secondaryActions.appendChild(btnImg);
+            }
+
+            // (C) 複製貼文內文按鈕
+            const caption = data.description ? data.description.trim() : '';
+            if (caption) {
+                const btnCopy = document.createElement('button');
+                btnCopy.type = 'button';
+                btnCopy.className = 'btn-sec-action';
+                btnCopy.innerHTML = `<i class="fa-regular fa-copy"></i> 複製貼文內文`;
+                btnCopy.addEventListener('click', () => {
+                    navigator.clipboard.writeText(caption);
+                    showToast('已複製貼文內文！');
+                });
+                secondaryActions.appendChild(btnCopy);
+
+                captionWrapper.style.display = 'block';
+                captionContent.textContent = caption;
+            } else {
+                captionWrapper.style.display = 'none';
+            }
+
+            // 多張圖片展示微圖庫（若有多張原圖）
+            if (hasImages && data.images.length > 1) {
+                const galleryBox = document.createElement('div');
+                galleryBox.className = 'lite-image-gallery';
+                data.images.slice(0, 8).forEach((imgUrl, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'gallery-thumb-item';
+                    const pName = sanitizeFilename(data.title, `photo_${idx + 1}`, 'jpg');
+                    const pDl = `/api/download?url=${safeEncode(imgUrl)}&filename=${safeEncode(pName)}&type=image`;
+
+                    item.innerHTML = `
+                        <img src="${imgUrl}" alt="圖 ${idx + 1}" referrerpolicy="no-referrer" loading="lazy">
+                        <button type="button" class="gallery-thumb-btn">
+                            <i class="fa-solid fa-download"></i> 圖 ${idx + 1}
+                        </button>
+                    `;
+                    item.querySelector('.gallery-thumb-btn').addEventListener('click', (e) => {
+                        startStreamDownload(pDl, pName, e.currentTarget, imgUrl, false);
+                    });
+                    galleryBox.appendChild(item);
+                });
+                secondaryActions.parentElement.appendChild(galleryBox);
+            }
+
+            resultCard.style.display = 'flex';
+            resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // 折疊貼文內文展開/收合
+        if (btnToggleCaption) {
+            btnToggleCaption.addEventListener('click', () => {
+                const isOpen = captionBody.style.display === 'flex';
+                captionBody.style.display = isOpen ? 'none' : 'flex';
+                if (toggleArrow) toggleArrow.classList.toggle('open', !isOpen);
+            });
+        }
+        if (btnCopyCaption) {
+            btnCopyCaption.addEventListener('click', () => {
+                if (captionContent && captionContent.textContent) {
+                    navigator.clipboard.writeText(captionContent.textContent);
+                    showToast('已成功複製全文！');
+                }
+            });
+        }
+
+        // 折疊其他畫質展開/收合
+        if (btnToggleAlt) {
+            btnToggleAlt.addEventListener('click', () => {
+                const isOpen = altFormatsList.style.display === 'flex';
+                altFormatsList.style.display = isOpen ? 'none' : 'flex';
+                if (toggleAltArrow) toggleAltArrow.classList.toggle('open', !isOpen);
+            });
+        }
+
+        // ==========================================
+        // 3. 高速串流下載與動態進度反饋
+        // ==========================================
+        async function startStreamDownload(url, filename, btn, directUrl = '', hasAudioMerge = false) {
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+
+            // 策略 1：免合成之獨立媒體直接走官方 CDN（零伺服器流量）
+            if (directUrl && !hasAudioMerge && directUrl.startsWith('http')) {
+                try {
+                    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 高速連線中...`;
+                    const directResp = await fetch(directUrl, { mode: 'cors' });
+                    if (directResp.ok) {
+                        const contentLength = directResp.headers.get('content-length');
+                        const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+                        if (!directResp.body) {
+                            const blob = await directResp.blob();
+                            triggerBrowserSave(blob, filename);
+                            showToast('已完成下載並儲存！');
+                            btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> 下載完成！`;
+                            setTimeout(() => { btn.disabled = false; btn.innerHTML = originalHtml; }, 1500);
+                            return;
+                        }
+
+                        const reader = directResp.body.getReader();
+                        const chunks = [];
+                        let receivedBytes = 0;
+                        let lastUpdate = 0;
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            chunks.push(value);
+                            receivedBytes += value.length;
+
+                            const now = Date.now();
+                            if (now - lastUpdate > 100) {
+                                lastUpdate = now;
+                                const mbRec = (receivedBytes / (1024 * 1024)).toFixed(1);
+                                if (totalBytes > 0) {
+                                    const percent = Math.min(99, Math.round((receivedBytes / totalBytes) * 100));
+                                    const mbTot = (totalBytes / (1024 * 1024)).toFixed(1);
+                                    btn.innerHTML = `<i class="fa-solid fa-bolt"></i> 下載中 ${percent}% (${mbRec}/${mbTot}MB)`;
+                                } else {
+                                    btn.innerHTML = `<i class="fa-solid fa-bolt"></i> 下載中 ${mbRec}MB...`;
+                                }
+                            }
+                        }
+
+                        const blob = new Blob(chunks);
+                        triggerBrowserSave(blob, filename);
+                        showToast('已完成下載並儲存！');
+                        btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> 下載完成！`;
+                        setTimeout(() => { btn.disabled = false; btn.innerHTML = originalHtml; }, 1500);
+                        return;
+                    }
+                } catch (cdnErr) {
+                    // 官方 CDN 擋跨域時自動降級切換至後端安全通道
+                }
+            }
+
+            // 策略 2：後端安全通道 (支援轉碼合成與防跨域阻擋)
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 伺服器傳輸中...`;
+            let elapsed = 0;
+            const muxTimer = setInterval(() => {
+                if (btn.disabled) {
+                    elapsed++;
+                    if (elapsed >= 2) {
+                        btn.innerHTML = `<i class="fa-solid fa-gear fa-spin"></i> 影音打包封裝中 (${elapsed}s)...`;
+                    }
+                }
+            }, 1000);
+
+            try {
+                const resp = await fetch(url);
+                clearInterval(muxTimer);
+
+                if (resp.status === 401) {
+                    showCookieExpiredModal();
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                    return;
+                }
+
+                if (!resp.ok) {
+                    const errTxt = await resp.text();
+                    throw new Error(errTxt || '伺服器下載回傳失敗');
+                }
+
+                const contentLength = resp.headers.get('content-length');
+                const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+                if (!resp.body) {
+                    const blob = await resp.blob();
+                    triggerBrowserSave(blob, filename);
+                    showToast('已完成下載並儲存！');
+                    btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> 下載完成！`;
+                    setTimeout(() => { btn.disabled = false; btn.innerHTML = originalHtml; }, 1500);
+                    return;
+                }
+
+                const reader = resp.body.getReader();
+                const chunks = [];
+                let receivedBytes = 0;
+                let lastUpdate = 0;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                    receivedBytes += value.length;
+
+                    const now = Date.now();
+                    if (now - lastUpdate > 100) {
+                        lastUpdate = now;
+                        const mbRec = (receivedBytes / (1024 * 1024)).toFixed(1);
+                        if (totalBytes > 0) {
+                            const percent = Math.min(99, Math.round((receivedBytes / totalBytes) * 100));
+                            const mbTot = (totalBytes / (1024 * 1024)).toFixed(1);
+                            btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-down"></i> 下載中 ${percent}% (${mbRec}/${mbTot}MB)`;
+                        } else {
+                            btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-down"></i> 下載中 ${mbRec}MB...`;
+                        }
+                    }
+                }
+
+                const blob = new Blob(chunks);
+                triggerBrowserSave(blob, filename);
+                showToast('已完成下載並儲存！');
+                btn.innerHTML = `<i class="fa-solid fa-circle-check"></i> 下載完成！`;
+                setTimeout(() => { btn.disabled = false; btn.innerHTML = originalHtml; }, 1500);
+            } catch (downloadErr) {
+                clearInterval(muxTimer);
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                showError(`下載失敗: ${downloadErr.message || '請稍後重試'}`);
+            }
+        }
+
+        // 觸發瀏覽器下載或相簿儲存
+        function triggerBrowserSave(blob, filename) {
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = blobUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+            }, 1000);
+        }
+    });
+    </script>
+</body>
+</html>

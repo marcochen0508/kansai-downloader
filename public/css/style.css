@@ -862,6 +862,30 @@ body {
     box-shadow: 0 6px 14px rgba(244, 63, 94, 0.35);
 }
 
+.btn-switch-version {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #ffffff;
+    text-decoration: none;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25);
+    transition: all 0.2s ease;
+    margin-left: 6px;
+}
+
+.btn-switch-version:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(99, 102, 241, 0.4);
+    color: #ffffff;
+}
+
 /* PWA Modal Overlay & Card */
 .pwa-modal-overlay {
     position: fixed;

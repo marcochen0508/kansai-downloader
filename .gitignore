@@ -16,3 +16,4 @@ scratch/
 *.ytdl
 bin/
 *.exe
+sync_to_hf.py
